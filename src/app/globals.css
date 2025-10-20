@@ -24,3 +24,31 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ==== Some Kind of Game Theme Variables ==== */
+:root {
+  /* Set these to match your WordPress theme */
+  --skg-bg: #0f172a;      /* ← replace with your WP background */
+  --skg-text: #ffffff;    /* usually #111 for light themes, #fff for dark */
+  --skg-accent: #0085ff;  /* ← replace with your WP accent/link color */
+
+  /* Derived surfaces (subtle panels) */
+  --skg-surface: color-mix(in oklab, var(--skg-bg) 85%, white 15%);
+  --skg-surface-strong: color-mix(in oklab, var(--skg-bg) 75%, white 25%);
+  --skg-border: color-mix(in oklab, var(--skg-bg) 70%, white 30%);
+}
+
+/* Utility classes that use the variables */
+.skg-bg           { background: var(--skg-bg);   }
+.skg-text         { color:      var(--skg-text); }
+.skg-surface      { background: var(--skg-surface); }
+.skg-surface-2    { background: var(--skg-surface-strong); }
+.skg-border       { border-color: var(--skg-border); }
+.skg-accent       { color: var(--skg-accent); }
+.skg-btn {
+  background: var(--skg-accent);
+  color: #fff;
+}
+.skg-btn:hover {
+  filter: brightness(1.05);
+}

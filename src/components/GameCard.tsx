@@ -27,7 +27,9 @@ export default function GameCard({ title, slug, content }: GameCardProps) {
       ) : null;
 
   return (
-    <div className="bg-gray-800/80 backdrop-blur-md rounded-2xl shadow-lg hover:shadow-blue-500/30 transition-shadow duration-300 p-4 text-center flex flex-col items-center justify-between">
+    // src/components/GameCard.tsx (only the wrapper div className)
+<div className="skg-surface-2 rounded-2xl shadow-lg hover:shadow-lg transition-shadow duration-300 p-4 text-center flex flex-col items-center justify-between border skg-border">
+
       <h2 className="text-lg font-semibold mb-3">{title}</h2>
 
       {embeddedVideo && (
