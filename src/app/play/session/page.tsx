@@ -1,6 +1,5 @@
 import { fetchGames, shuffle } from "@/lib/api";
-import GameCard from "@/components/GameCard";
-import ClientScoreBoard from "@/components/ClientScoreBoard";
+import SessionClient from "@/components/SessionClient";
 
 type Game = {
   id: string;
@@ -16,8 +15,8 @@ export default async function SessionPage({
     count?: string;
     players?: string;
     sessionId?: string;
-    c?: string; // comma-separated category IDs
-    t?: string; // comma-separated tag IDs
+    c?: string; // category ids
+    t?: string; // tag ids
   };
 }) {
   const count = Number(searchParams.count || 3);
@@ -55,12 +54,7 @@ export default async function SessionPage({
   return (
     <main className="min-h-screen flex flex-col items-center p-8">
       <h1 className="text-3xl font-bold mb-4">Game Session</h1>
-      <p className="text-gray-400 mb-6">
-        Playing {count} random games
-        {players.length ? ` with ${players.join(", ")}` : ""}.
-      </p>
 
-      {/* Selected filters info */}
       {(catIds.length > 0 || tagIds.length > 0) && (
         <p className="opacity-80 mb-4 text-sm">
           Filters: {catIds.length ? `Categories(${catIds.join(", ")}) ` : ""}
@@ -68,26 +62,12 @@ export default async function SessionPage({
         </p>
       )}
 
-      <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 w-full max-w-6xl">
-        {games.map((game) => (
-          <GameCard
-            key={game.id}
-            title={game.title}
-            slug={game.slug}
-            content={game.content}
-          />
-        ))}
-        {games.length === 0 && (
-          <p className="opacity-75">No games match the selected filters.</p>
-        )}
-      </div>
-
-      <div className="mt-10 w-full max-w-md">
-        <ClientScoreBoard
-          players={players}
-          initialSessionId={initialSessionId}
-        />
-      </div>
+      {/* NEW: One-at-a-time flow with sticky scoreboard */}
+      <SessionClient
+        games={games}
+        players={players}
+        initialSessionId={initialSessionId}
+      />
     </main>
   );
 }
