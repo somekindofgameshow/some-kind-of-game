@@ -63,11 +63,16 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
   return (
     <div className="w-full flex flex-col items-center gap-6">
       {/* ✅ Scoreboard rendered in HEADER on desktop+ via portal */}
-     <HeaderPortal>
+<HeaderPortal>
   <div className="origin-center">
-    <ScoreBoard players={players} variant="compact" />
+    <ClientScoreBoard
+      players={players}
+      sessionId={effectiveSessionId}
+      variant="compact"
+    />
   </div>
 </HeaderPortal>
+
 
 
       {/* Mobile scoreboard only (header has desktop version) */}
