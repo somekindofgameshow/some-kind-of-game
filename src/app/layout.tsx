@@ -2,7 +2,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Link from "next/link";
-import Image from "next/image";
 
 export const metadata: Metadata = {
   title: "Some Kind of Game",
@@ -20,33 +19,24 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-black text-white flex flex-col min-h-screen font-sans">
-        {/* Header — 3-column grid keeps center perfectly centered */}
-        <header className="skg-surface border-b skg-border px-4 py-3 sticky top-0 z-50">
-          <div className="max-w-6xl mx-auto grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-            {/* LEFT: Back to blog */}
+        {/* Slim header bar */}
+        <header className="skg-surface border-b skg-border sticky top-0 z-50">
+          <div className="max-w-6xl mx-auto grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-2">
+            {/* LEFT: Home */}
             <div className="justify-self-start">
               <a
                 href={blogUrl}
                 className="skg-btn px-3 py-1 rounded-lg inline-flex items-center gap-2"
               >
                 <span>←</span>
-                <span>Back to Some Kind of Game</span>
+                <span>Home</span>
               </a>
             </div>
 
-            {/* CENTER: Banner image (clickable to blog) */}
-            <div className="justify-self-center">
-              <a href={blogUrl} aria-label="Back to Some Kind of Game (home)">
-                {/* Provide natural width/height; CSS controls actual size */}
-                <Image
-                  src="/banner.png"
-                  width={800}
-                  height={200}
-                  priority
-                  alt="Some Kind of Game"
-                  className="h-10 md:h-12 w-auto object-contain"
-                />
-              </a>
+            {/* CENTER: Two-line headline */}
+            <div className="justify-self-center text-center leading-tight">
+              <div className="text-xs md:text-sm opacity-80">You&apos;re playing</div>
+              <div className="text-base md:text-lg font-semibold">Some Kind of Game</div>
             </div>
 
             {/* RIGHT: New Game */}

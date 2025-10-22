@@ -56,8 +56,7 @@ export default async function SessionPage({
 
   return (
     <main className="min-h-screen flex flex-col items-center p-8">
-      <h1 className="text-3xl font-bold mb-4">Game Session</h1>
-
+      
       {(catIds.length > 0 || tagIds.length > 0) && (
         <p className="opacity-80 mb-4 text-sm">
           Filters: {catIds.length ? `Categories(${catIds.join(", ")}) ` : ""}
