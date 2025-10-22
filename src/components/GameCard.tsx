@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * Card that shows sanitized WP HTML.
- * - Server: render a safe, simple fallback (p/ul/ol/li) from the HTML string.
- * - Client: dynamically sanitize the full HTML and swap it in after hydrate.
- * - suppressHydrationWarning => no red overlay.
+ * Elementor-safe card renderer:
+ * - Server: build a simple, safe fallback (p/ul/ol/li) from the HTML string.
+ * - Client: sanitize full HTML with a broader allow-list (Elementor-friendly).
+ * - If client sanitization returns empty, we KEEP the server fallback.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -12,8 +12,8 @@ import { useEffect, useMemo, useState } from "react";
 type Props = {
   title: string;
   slug?: string;
-  content?: string; // WordPress HTML
-  excerpt?: string; // WordPress HTML
+  content?: string; // WordPress HTML (may be Elementor)
+  excerpt?: string;
 };
 
 /** Minimal entity decoding */
@@ -29,15 +29,12 @@ function decodeEntities(s = "") {
     .replace(/&gt;/g, ">");
 }
 
-/** Strip all tags from a fragment */
+/** Strip all tags → plain text */
 function stripTags(s = "") {
   return decodeEntities(s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
 }
 
-/**
- * Build a very safe fallback HTML (p + ul/ol + li) using regex only.
- * This runs on the server so SSR always shows something readable.
- */
+/** Build simple p/ul/ol/li HTML on the server (regex only) */
 function buildServerFallbackHtml(srcHtml: string, fallbackTitle: string) {
   const pMatches = Array.from(srcHtml.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi));
   const olMatches = Array.from(srcHtml.matchAll(/<ol[^>]*>([\s\S]*?)<\/ol>/gi));
@@ -48,8 +45,10 @@ function buildServerFallbackHtml(srcHtml: string, fallbackTitle: string) {
   if (pMatches.length === 0 && olMatches.length === 0 && ulMatches.length === 0) {
     const txt = stripTags(srcHtml);
     if (txt) {
-      // split on blank lines
-      txt.split(/\n{2,}/).map((t) => t.trim()).filter(Boolean)
+      txt
+        .split(/\n{2,}/)
+        .map((t) => t.trim())
+        .filter(Boolean)
         .forEach((t) => parts.push(`<p>${t}</p>`));
     } else {
       parts.push(`<p>${decodeEntities(fallbackTitle)}</p>`);
@@ -79,55 +78,46 @@ function buildServerFallbackHtml(srcHtml: string, fallbackTitle: string) {
 export default function GameCard({ title, slug, content, excerpt }: Props) {
   const rawHtml = useMemo(() => content || excerpt || `<p>${title}</p>`, [content, excerpt, title]);
 
-  // 1) Server fallback HTML (safe p/ul/ol/li only)
+  // Server fallback that always shows *some* readable content
   const serverHtml = useMemo(() => buildServerFallbackHtml(rawHtml, title), [rawHtml, title]);
 
-  // 2) Client sanitization (full allow-list incl. images/emojis)
+  // Client sanitizer result (Elementor-friendly allow-list)
   const [clientHtml, setClientHtml] = useState<string | null>(null);
 
   useEffect(() => {
     let canceled = false;
-
     (async () => {
-      // dynamic import => runs only in the browser, not during SSR
       const { default: DOMPurify } = await import("isomorphic-dompurify");
       const cleaned = DOMPurify.sanitize(rawHtml, {
+        // Expanded allow-list to keep Elementor text & structure
         ALLOWED_TAGS: [
-          "p",
-          "br",
-          "strong",
-          "em",
-          "b",
-          "i",
-          "u",
-          "span",
-          "ul",
-          "ol",
-          "li",
-          "blockquote",
-          "hr",
-          "code",
-          "pre",
-          "a",
-          "img",
-          "h1",
-          "h2",
-          "h3",
-          "h4",
+          "p", "br", "strong", "em", "b", "i", "u", "span",
+          "ul", "ol", "li", "blockquote", "hr", "code", "pre",
+          "a", "img",
+          // Elementor / theme wrappers
+          "div", "section", "article", "header", "footer",
+          "figure", "figcaption",
+          // Headings
+          "h1", "h2", "h3", "h4", "h5", "h6",
+          // (optional) tables if you ever use them
+          "table", "thead", "tbody", "tr", "td", "th"
         ],
-        ALLOWED_ATTR: ["href", "title", "target", "rel", "src", "alt", "width", "height", "loading"],
+        ALLOWED_ATTR: [
+          "href", "title", "target", "rel",
+          "src", "alt", "width", "height", "loading",
+          "class", "id", "style", // keep lightweight styling/classnames from Elementor
+          "aria-label", "role"
+        ],
         ALLOW_DATA_ATTR: false,
+        // note: DOMPurify will strip disallowed tags but keep their text content
       });
       if (!canceled) setClientHtml(cleaned);
     })();
-
-    return () => {
-      canceled = true;
-    };
+    return () => { canceled = true; };
   }, [rawHtml]);
 
-  // prefer the fully sanitized client HTML; SSR gets the safe server HTML
-  const finalHtml = clientHtml ?? serverHtml;
+  // Prefer clientHtml only if it actually has content; otherwise keep the server fallback
+  const finalHtml = clientHtml && clientHtml.trim().length > 0 ? clientHtml : serverHtml;
 
   return (
     <article
@@ -141,13 +131,11 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
       aria-label={title}
       role="group"
     >
-      {/* small pip + slug */}
       <div className="flex items-center gap-2 text-xs opacity-70">
         <div className="h-3 w-3 rounded-full bg-white/70" />
         {slug && <span className="truncate">{slug}</span>}
       </div>
 
-      {/* Body */}
       <div
         className="
           text-center font-semibold leading-tight text-pretty
@@ -158,12 +146,12 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
           [&_blockquote]:italic [&_blockquote]:opacity-90 [&_blockquote]:mx-auto [&_blockquote]:max-w-prose
           [&_a]:underline
           [&_img]:rounded-xl [&_img]:mx-auto [&_img]:my-4 [&_img]:max-h-72 [&_img]:object-contain
+          [&_div]:mb-3 [&_section]:mb-3  /* Elementor wrappers get spacing */
         "
         suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: finalHtml }}
       />
 
-      {/* Footer title */}
       <div className="mt-2 text-xs opacity-70 text-left">{title}</div>
     </article>
   );
