@@ -1,27 +1,27 @@
+// src/components/ClientScoreBoard.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import ScoreBoard from "./ScoreBoard";
+import ScoreBoard from "@/components/ScoreBoard";
 
 type Props = {
   players: string[];
-  initialSessionId?: string;
+  /** Optional – unique ID for this session's saved scores */
+  sessionId?: string;
+  /** Use "compact" for the header version */
+  variant?: "default" | "compact";
 };
 
-export default function ClientScoreBoard({ players, initialSessionId }: Props) {
-  const [sessionId, setSessionId] = useState<string | undefined>(initialSessionId);
-
-  useEffect(() => {
-    if (!initialSessionId) {
-      try {
-        const saved = localStorage.getItem("skg-current-session-id");
-        if (saved) setSessionId(saved);
-      } catch {}
-    }
-  }, [initialSessionId]);
-
-  // Fallback if nothing is found (still works, just won’t persist across reloads)
-  const effective = sessionId || "temp";
-
-  return <ScoreBoard players={players} sessionId={effective} />;
+export default function ClientScoreBoard({
+  players,
+  sessionId = "default",
+  variant = "default",
+}: Props) {
+  // ScoreBoard expects sessionKey (not sessionId), so we forward it.
+  return (
+    <ScoreBoard
+      players={players}
+      sessionKey={sessionId}
+      variant={variant}
+    />
+  );
 }

@@ -75,6 +75,7 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
 
 
 
+
       {/* Mobile scoreboard only (header has desktop version) */}
 <div className="md:hidden w-full max-w-3xl">
   <ClientScoreBoard players={players} initialSessionId={effectiveSessionId} />
