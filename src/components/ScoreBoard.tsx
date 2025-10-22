@@ -2,117 +2,146 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type ScoreBoardProps = {
+/**
+ * ScoreBoard
+ * - Persists scores per sessionId (from localStorage).
+ * - Players arranged in a responsive grid so rows wrap on long lists.
+ * - `variant="compact"` for header use (smaller paddings/buttons).
+ */
+
+type Props = {
   players: string[];
-  sessionId: string; // used for localStorage key
+  sessionKey?: string; // optional explicit key; if omitted, uses "skg-score-default"
+  variant?: "default" | "compact";
 };
 
-export default function ScoreBoard({ players, sessionId }: ScoreBoardProps) {
-  const STORAGE_KEY = useMemo(() => `skg-scores-${sessionId}`, [sessionId]);
+type Scores = Record<string, number>;
 
-  const [scores, setScores] = useState<Record<string, number>>(
-    Object.fromEntries(players.map((p) => [p, 0]))
-  );
-  const [finished, setFinished] = useState(false);
+const STORAGE_PREFIX = "skg-scores-";
 
-  // Load existing scores for this session
+export default function ScoreBoard({
+  players,
+  sessionKey = "default",
+  variant = "default",
+}: Props) {
+  const storageKey = useMemo(() => STORAGE_PREFIX + sessionKey, [sessionKey]);
+
+  const [scores, setScores] = useState<Scores>({});
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw) as Record<string, number>;
-        // Merge in case player list changed
-        const merged: Record<string, number> = {};
-        players.forEach((p) => (merged[p] = saved[p] ?? 0));
-        setScores(merged);
-      } else {
-        // initialize for new session
-        const init = Object.fromEntries(players.map((p) => [p, 0]));
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(init));
-        setScores(init);
-      }
-    } catch {}
-    // re-run when player list changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [STORAGE_KEY, players.join(",")]);
+      const raw = localStorage.getItem(storageKey);
+      setScores(raw ? JSON.parse(raw) : {});
+    } catch {
+      setScores({});
+    }
+  }, [storageKey]);
 
-  // Save whenever scores change
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(scores));
+      localStorage.setItem(storageKey, JSON.stringify(scores));
     } catch {}
-  }, [scores, STORAGE_KEY]);
+  }, [scores, storageKey]);
 
-  const updateScore = (player: string, delta: number) => {
-    setScores((prev) => ({ ...prev, [player]: (prev[player] ?? 0) + delta }));
-  };
+  const inc = (name: string) =>
+    setScores((s) => ({ ...s, [name]: (s[name] || 0) + 1 }));
+  const dec = (name: string) =>
+    setScores((s) => ({ ...s, [name]: Math.max(0, (s[name] || 0) - 1) }));
+  const reset = () => setScores({});
+  const totalFor = (name: string) => scores[name] || 0;
 
-  const winner = Object.entries(scores).reduce<[string, number]>(
-    (top, curr) => (curr[1] > top[1] ? [curr[0], curr[1]] : top),
-    ["", -Infinity]
+  // leader (simple max)
+  const leader = players.reduce(
+    (best, p) => {
+      const v = scores[p] || 0;
+      if (v > best.score) return { name: p, score: v };
+      return best;
+    },
+    { name: "", score: -1 }
   );
 
-  if (finished) {
-    return (
-      <div className="skg-surface rounded-2xl p-6 text-center shadow-lg border skg-border">
-        <h2 className="text-3xl font-bold mb-3">🏆 Winner!</h2>
-        <p className="text-2xl mb-4">{winner[0] || "No one yet 😅"}</p>
-        <button
-          className="skg-btn px-4 py-2 rounded-xl font-semibold transition"
-          onClick={() => setFinished(false)}
-        >
-          Back to scores
-        </button>
-      </div>
-    );
-  }
+  const isCompact = variant === "compact";
 
   return (
-    <div className="skg-surface rounded-xl p-4 shadow-md max-w-md w-full text-center border skg-border">
-      <h3 className="text-lg font-bold mb-2">Scoreboard</h3>
-      <ul className="space-y-2">
-        {players.map((p) => (
-          <li key={p} className="flex justify-between items-center">
-            <span>{p}</span>
-            <div className="flex gap-2">
+    <div
+      className={[
+        "rounded-2xl skg-surface skg-border p-3 md:p-4 shadow-lg",
+        isCompact ? "max-w-xl" : "max-w-2xl",
+      ].join(" ")}
+      aria-label="Scoreboard"
+    >
+      <div className="font-semibold text-center mb-2">Scoreboard</div>
+
+      {/* Responsive grid: wraps gracefully as players increase */}
+      <div
+        className={[
+          "grid gap-2",
+          // auto-fit min cards to keep name + buttons on one line where possible
+          "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]",
+        ].join(" ")}
+      >
+        {players.map((name) => (
+          <div
+            key={name}
+            className={[
+              "flex items-center justify-between rounded-xl",
+              "px-2 py-1 skg-surface/50 skg-border",
+              isCompact ? "text-sm" : "text-base",
+            ].join(" ")}
+          >
+            <span className="truncate pr-2">{name}</span>
+            <div className="flex items-center gap-2 shrink-0">
               <button
-                onClick={() => updateScore(p, -1)}
-                className="px-2 rounded"
-                style={{ background: "#e11d48", color: "#fff" }}
+                onClick={() => dec(name)}
+                className={[
+                  "rounded-lg px-2",
+                  isCompact ? "py-0.5 text-sm" : "py-1",
+                  "bg-rose-600 text-white",
+                ].join(" ")}
+                aria-label={`decrease ${name}`}
               >
-                −
+                –
               </button>
-              <span>{scores[p] ?? 0}</span>
+              <span className="min-w-[1.25rem] text-center">
+                {totalFor(name)}
+              </span>
               <button
-                onClick={() => updateScore(p, +1)}
-                className="px-2 rounded skg-btn"
+                onClick={() => inc(name)}
+                className={[
+                  "rounded-lg px-2",
+                  isCompact ? "py-0.5 text-sm" : "py-1",
+                  "bg-sky-600 text-white",
+                ].join(" ")}
+                aria-label={`increase ${name}`}
               >
                 +
               </button>
             </div>
-          </li>
+          </div>
         ))}
-      </ul>
-      <p className="mt-4 opacity-75">
-        🏆 Current leader: <b>{winner[0] || "None yet"}</b>
-      </p>
-      <div className="mt-4 flex justify-center gap-3">
-        <button
-          onClick={() => setFinished(true)}
-          className="skg-btn font-semibold py-2 px-4 rounded-xl transition"
-        >
-          End Game
-        </button>
-        <button
-          onClick={() => {
-            const reset = Object.fromEntries(players.map((p) => [p, 0]));
-            setScores(reset);
-          }}
-          className="px-4 py-2 rounded-xl font-semibold"
-          style={{ background: "#374151", color: "#fff" }}
-        >
-          Reset
-        </button>
+      </div>
+
+      {/* footer */}
+      <div
+        className={[
+          "flex items-center justify-between mt-3 gap-2",
+          isCompact ? "text-xs" : "text-sm",
+        ].join(" ")}
+      >
+        <div className="opacity-80">
+          🏆 Current leader:{" "}
+          <span className="font-semibold">
+            {leader.score >= 0 ? leader.name : "—"}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="skg-btn px-3 py-1 rounded-lg">End Game</button>
+          <button
+            onClick={reset}
+            className="px-3 py-1 rounded-lg bg-gray-600 text-white"
+          >
+            Reset
+          </button>
+        </div>
       </div>
     </div>
   );

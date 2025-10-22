@@ -63,16 +63,18 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
   return (
     <div className="w-full flex flex-col items-center gap-6">
       {/* ✅ Scoreboard rendered in HEADER on desktop+ via portal */}
-      <HeaderPortal>
-        <div className="hidden md:block scale-90 origin-right">
-          <ClientScoreBoard players={players} initialSessionId={effectiveSessionId} />
-        </div>
-      </HeaderPortal>
+     <HeaderPortal>
+  <div className="origin-center">
+    <ScoreBoard players={players} variant="compact" />
+  </div>
+</HeaderPortal>
 
-      {/* ✅ In-page scoreboard for mobile only */}
-      <div className="w-full max-w-3xl md:hidden">
-        <ClientScoreBoard players={players} initialSessionId={effectiveSessionId} />
-      </div>
+
+      {/* Mobile scoreboard only (header has desktop version) */}
+<div className="md:hidden w-full max-w-3xl">
+  <ClientScoreBoard players={players} initialSessionId={effectiveSessionId} />
+</div>
+
 
       {/* Progress header */}
       <div className="w-full max-w-3xl">
