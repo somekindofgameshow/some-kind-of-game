@@ -73,3 +73,13 @@ export default async function SessionPage({
     </main>
   );
 }
+
+// TEMP DEBUG — remove after we verify
+const sample = (data?.posts?.nodes || []).find((p: any) => p?.slug === "puzzle-game"); // <-- replace with the slug that’s blank
+console.log("DEBUG: post on server", {
+  title: sample?.title,
+  slug: sample?.slug,
+  contentLen: sample?.content?.length,
+  excerptLen: sample?.excerpt?.length,
+  first200: sample?.content?.slice(0, 200),
+});
