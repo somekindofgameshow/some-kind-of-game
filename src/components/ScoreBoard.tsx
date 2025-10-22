@@ -1,25 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * ScoreBoard
- * - Persists scores per session (namespaced key).
- * - Responsive grid so player rows wrap nicely with long lists.
- * - variant="compact" for header use.
- * - Accepts either `sessionId` (preferred) or `sessionKey` (back-compat).
+ * - Persists scores per sessionKey (localStorage).
+ * - Responsive grid that wraps player rows.
+ * - variant="compact" shrinks paddings for header use, "default" is the body card.
+ * - Sound effects:
+ *    - + : higher-pitch click
+ *    - − : lower-pitch click
+ *    - End Game : victory fanfare if a single winner, neutral tone if tie
  */
 
 type Props = {
   players: string[];
-  /** Preferred: per-session namespace for localStorage */
-  sessionId?: string;
-  /** Back-compat with your previous prop; ignored if sessionId is provided */
-  sessionKey?: string;
-  /** "default" (bigger) or "compact" (for header) */
+  sessionKey?: string;            // optional explicit key; defaults to "default"
   variant?: "default" | "compact";
-  /** Optional callback if you want to handle End Game outside */
-  onEndGame?: () => void;
 };
 
 type Scores = Record<string, number>;
@@ -28,20 +25,15 @@ const STORAGE_PREFIX = "skg-scores-";
 
 export default function ScoreBoard({
   players,
-  sessionId,
-  sessionKey, // back-compat
+  sessionKey = "default",
   variant = "default",
-  onEndGame,
 }: Props) {
-  // Decide which namespace to use: sessionId > sessionKey > "default"
-  const storageKey = useMemo(() => {
-    const ns = sessionId ?? sessionKey ?? "default";
-    return STORAGE_PREFIX + ns;
-  }, [sessionId, sessionKey]);
+  const storageKey = useMemo(() => STORAGE_PREFIX + sessionKey, [sessionKey]);
 
+  // -----------------------
+  // Persistence
+  // -----------------------
   const [scores, setScores] = useState<Scores>({});
-
-  // Load
   useEffect(() => {
     try {
       const raw = localStorage.getItem(storageKey);
@@ -51,46 +43,117 @@ export default function ScoreBoard({
     }
   }, [storageKey]);
 
-  // Persist
   useEffect(() => {
     try {
       localStorage.setItem(storageKey, JSON.stringify(scores));
     } catch {}
   }, [scores, storageKey]);
 
-  // Ensure players exist in map and prune removed ones
-  useEffect(() => {
-    setScores((prev) => {
-      const next: Scores = { ...prev };
-      for (const p of players) if (!(p in next)) next[p] = 0;
-      for (const k of Object.keys(next)) if (!players.includes(k)) delete next[k];
-      return next;
-    });
-  }, [players]);
-
-  const inc = (name: string) =>
+  const inc = (name: string) => {
+    playClickUp();
     setScores((s) => ({ ...s, [name]: (s[name] || 0) + 1 }));
-  const dec = (name: string) =>
-    setScores((s) => ({ ...s, [name]: Math.max(0, (s[name] || 0) - 1) }));
-  const reset = () =>
-    setScores(Object.fromEntries(players.map((p) => [p, 0])));
+  };
 
+  const dec = (name: string) => {
+    playClickDown();
+    setScores((s) => ({ ...s, [name]: Math.max(0, (s[name] || 0) - 1) }));
+  };
+
+  const reset = () => setScores({});
   const totalFor = (name: string) => scores[name] || 0;
 
-  const leader =
-    players.reduce(
-      (best, p) => {
-        const v = scores[p] || 0;
-        return v > best.score ? { name: p, score: v } : best;
-      },
-      { name: "", score: -1 }
-    ) || { name: "", score: -1 };
+  // leader (simple max)
+  const leader = players.reduce(
+    (best, p) => {
+      const v = scores[p] || 0;
+      if (v > best.score) return { name: p, score: v };
+      return best;
+    },
+    { name: "", score: -1 }
+  );
 
   const isCompact = variant === "compact";
 
-  const handleEndGame = () => {
-    if (onEndGame) onEndGame();
-    // no-op by default; leave to parent if you want to show a winner screen
+  // -----------------------
+  // Tiny WebAudio synth
+  // -----------------------
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const getCtx = () => {
+    if (typeof window === "undefined") return null;
+    if (!audioCtxRef.current) {
+      try {
+        audioCtxRef.current = new (window.AudioContext ||
+          (window as any).webkitAudioContext)();
+      } catch {
+        audioCtxRef.current = null;
+      }
+    }
+    return audioCtxRef.current;
+  };
+
+  // basic one-shot beep
+  const beep = (freq: number, ms: number, type: OscillatorType = "sine", gain = 0.04) => {
+    const ctx = getCtx();
+    if (!ctx) return;
+
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    g.gain.value = gain;
+
+    osc.connect(g);
+    g.connect(ctx.destination);
+
+    const now = ctx.currentTime;
+    // quick envelope to avoid clicks
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(gain, now + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + ms / 1000);
+
+    osc.start(now);
+    osc.stop(now + ms / 1000 + 0.02);
+  };
+
+  // Click sounds (A)
+  const playClickUp = () => {
+    // short, slightly higher pitch “positive”
+    beep(880, 70, "sine", 0.05);
+  };
+  const playClickDown = () => {
+    // short, slightly lower pitch “negative”
+    beep(440, 70, "sine", 0.05);
+  };
+
+  // Victory / tie (C) on End Game
+  const playVictory = () => {
+    // tiny triumphant arpeggio
+    const ctx = getCtx();
+    if (!ctx) return;
+    const base = 523.25; // C5
+    const steps = [0, 4, 7, 12]; // major arpeggio degrees
+    steps.forEach((st, idx) => {
+      setTimeout(() => beep(base * Math.pow(2, st / 12), 140, "triangle", 0.06), idx * 120);
+    });
+    // small “button confirm” at the end
+    setTimeout(() => beep(1046.5, 160, "triangle", 0.05), steps.length * 120 + 60);
+  };
+
+  const playTie = () => {
+    // neutral “boop”
+    beep(600, 150, "square", 0.04);
+  };
+
+  const onEndGame = () => {
+    // decide winner or tie
+    const max = Math.max(0, ...players.map((p) => scores[p] || 0));
+    const winners = players.filter((p) => (scores[p] || 0) === max);
+    if (winners.length === 1 && max > 0) {
+      playVictory();
+    } else {
+      playTie();
+    }
   };
 
   return (
@@ -107,7 +170,7 @@ export default function ScoreBoard({
       <div
         className={[
           "grid gap-2",
-          // auto-fit keeps each item wide enough for name + buttons on one line
+          // auto-fit min cards to keep name + buttons on one line where possible
           "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]",
         ].join(" ")}
       >
@@ -166,7 +229,10 @@ export default function ScoreBoard({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={handleEndGame} className="skg-btn px-3 py-1 rounded-lg">
+          <button
+            onClick={onEndGame}
+            className="skg-btn px-3 py-1 rounded-lg"
+          >
             End Game
           </button>
           <button
