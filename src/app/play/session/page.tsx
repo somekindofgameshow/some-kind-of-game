@@ -29,17 +29,19 @@ export default async function SessionPage({
     searchParams.t?.split(",").map((s) => Number(s)).filter(Boolean) || [];
 
   const query = `
-    query PostsByFilters($cat: [ID], $tag: [ID], $first: Int!) {
-      posts(first: $first, where: { categoryIn: $cat, tagIn: $tag }) {
-        nodes {
-          id
-          title
-          slug
-          content
-        }
+  query PostsByFilters($cat: [ID], $tag: [ID], $first: Int!) {
+    posts(first: $first, where: { categoryIn: $cat, tagIn: $tag }) {
+      nodes {
+        id
+        title
+        slug
+        content(format: RENDERED)
+        excerpt(format: RENDERED)
       }
     }
-  `;
+  }
+`;
+
 
   const variables = {
     cat: catIds.length ? catIds : null,
