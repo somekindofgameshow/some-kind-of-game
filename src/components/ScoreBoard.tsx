@@ -4,15 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 
 /**
  * ScoreBoard
- * - Persists scores per sessionId (from localStorage).
- * - Players arranged in a responsive grid so rows wrap on long lists.
- * - `variant="compact"` for header use (smaller paddings/buttons).
+ * - Persists scores per session (namespaced key).
+ * - Responsive grid so player rows wrap nicely with long lists.
+ * - variant="compact" for header use.
+ * - Accepts either `sessionId` (preferred) or `sessionKey` (back-compat).
  */
 
 type Props = {
   players: string[];
-  sessionKey?: string; // optional explicit key; if omitted, uses "skg-score-default"
+  /** Preferred: per-session namespace for localStorage */
+  sessionId?: string;
+  /** Back-compat with your previous prop; ignored if sessionId is provided */
+  sessionKey?: string;
+  /** "default" (bigger) or "compact" (for header) */
   variant?: "default" | "compact";
+  /** Optional callback if you want to handle End Game outside */
+  onEndGame?: () => void;
 };
 
 type Scores = Record<string, number>;
@@ -21,12 +28,20 @@ const STORAGE_PREFIX = "skg-scores-";
 
 export default function ScoreBoard({
   players,
-  sessionKey = "default",
+  sessionId,
+  sessionKey, // back-compat
   variant = "default",
+  onEndGame,
 }: Props) {
-  const storageKey = useMemo(() => STORAGE_PREFIX + sessionKey, [sessionKey]);
+  // Decide which namespace to use: sessionId > sessionKey > "default"
+  const storageKey = useMemo(() => {
+    const ns = sessionId ?? sessionKey ?? "default";
+    return STORAGE_PREFIX + ns;
+  }, [sessionId, sessionKey]);
 
   const [scores, setScores] = useState<Scores>({});
+
+  // Load
   useEffect(() => {
     try {
       const raw = localStorage.getItem(storageKey);
@@ -36,30 +51,47 @@ export default function ScoreBoard({
     }
   }, [storageKey]);
 
+  // Persist
   useEffect(() => {
     try {
       localStorage.setItem(storageKey, JSON.stringify(scores));
     } catch {}
   }, [scores, storageKey]);
 
+  // Ensure players exist in map and prune removed ones
+  useEffect(() => {
+    setScores((prev) => {
+      const next: Scores = { ...prev };
+      for (const p of players) if (!(p in next)) next[p] = 0;
+      for (const k of Object.keys(next)) if (!players.includes(k)) delete next[k];
+      return next;
+    });
+  }, [players]);
+
   const inc = (name: string) =>
     setScores((s) => ({ ...s, [name]: (s[name] || 0) + 1 }));
   const dec = (name: string) =>
     setScores((s) => ({ ...s, [name]: Math.max(0, (s[name] || 0) - 1) }));
-  const reset = () => setScores({});
+  const reset = () =>
+    setScores(Object.fromEntries(players.map((p) => [p, 0])));
+
   const totalFor = (name: string) => scores[name] || 0;
 
-  // leader (simple max)
-  const leader = players.reduce(
-    (best, p) => {
-      const v = scores[p] || 0;
-      if (v > best.score) return { name: p, score: v };
-      return best;
-    },
-    { name: "", score: -1 }
-  );
+  const leader =
+    players.reduce(
+      (best, p) => {
+        const v = scores[p] || 0;
+        return v > best.score ? { name: p, score: v } : best;
+      },
+      { name: "", score: -1 }
+    ) || { name: "", score: -1 };
 
   const isCompact = variant === "compact";
+
+  const handleEndGame = () => {
+    if (onEndGame) onEndGame();
+    // no-op by default; leave to parent if you want to show a winner screen
+  };
 
   return (
     <div
@@ -75,7 +107,7 @@ export default function ScoreBoard({
       <div
         className={[
           "grid gap-2",
-          // auto-fit min cards to keep name + buttons on one line where possible
+          // auto-fit keeps each item wide enough for name + buttons on one line
           "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]",
         ].join(" ")}
       >
@@ -134,7 +166,9 @@ export default function ScoreBoard({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <button className="skg-btn px-3 py-1 rounded-lg">End Game</button>
+          <button onClick={handleEndGame} className="skg-btn px-3 py-1 rounded-lg">
+            End Game
+          </button>
           <button
             onClick={reset}
             className="px-3 py-1 rounded-lg bg-gray-600 text-white"
