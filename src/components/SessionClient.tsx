@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import GameCard from "./GameCard";
 import ClientScoreBoard from "./ClientScoreBoard";
-import HeaderPortal from "@/components/HeaderPortal";
 
 type Game = { id: string; title: string; slug: string; content?: string; excerpt?: string };
 
@@ -14,7 +13,7 @@ type Props = {
 };
 
 export default function SessionClient({ games, players, initialSessionId }: Props) {
-  // Recover sessionId if not in URL (works with iframe refreshes)
+  // Recover sessionId if not in URL (works with refreshes)
   const [sessionId, setSessionId] = useState<string | undefined>(initialSessionId);
 
   useEffect(() => {
@@ -62,28 +61,10 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
 
   return (
     <div className="w-full flex flex-col items-center gap-6">
-      {/* ✅ Scoreboard rendered in HEADER on desktop+ via portal */}
-<HeaderPortal>
-  <div className="origin-center">
-    <ClientScoreBoard
-      players={players}
-      sessionId={effectiveSessionId}
-      variant="compact"
-    />
-  </div>
-</HeaderPortal>
-
-
-
-
-     {/* Mobile scoreboard only (header has desktop version) */}
-<div className="md:hidden w-full max-w-3xl">
-  <ClientScoreBoard
-    players={players}
-    sessionId={effectiveSessionId}   // ⬅ replace initialSessionId with sessionId
-  />
-</div>
-
+      {/* Scoreboard back in the body (visible on all sizes) */}
+      <div className="w-full max-w-3xl">
+        <ClientScoreBoard players={players} sessionId={effectiveSessionId} />
+      </div>
 
       {/* Progress header */}
       <div className="w-full max-w-3xl">
@@ -135,8 +116,7 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
 
       {atLast && (
         <p className="mt-1 text-sm opacity-80">
-          🎉 You reached the end. You can press <b>Restart Session</b> or use the
-          scoreboard’s <b>End Game</b> to announce the winner.
+          🎉 You reached the end. You can press <b>Restart Session</b> or use the scoreboard’s <b>End Game</b> to announce the winner.
         </p>
       )}
     </div>

@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Link from "next/link";
+import Image from "next/image";
 
 export const metadata: Metadata = {
   title: "Some Kind of Game",
@@ -22,7 +23,7 @@ export default function RootLayout({
         {/* Header — 3-column grid keeps center perfectly centered */}
         <header className="skg-surface border-b skg-border px-4 py-3 sticky top-0 z-50">
           <div className="max-w-6xl mx-auto grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-            {/* LEFT */}
+            {/* LEFT: Back to blog */}
             <div className="justify-self-start">
               <a
                 href={blogUrl}
@@ -33,16 +34,22 @@ export default function RootLayout({
               </a>
             </div>
 
-            {/* CENTER — scoreboard gets portaled here */}
-            <div
-              id="header-scoreboard-slot"
-              className="justify-self-center"
-              /* hidden on very small screens if you prefer:
-               * className="hidden sm:block justify-self-center"
-               */
-            />
+            {/* CENTER: Banner image (clickable to blog) */}
+            <div className="justify-self-center">
+              <a href={blogUrl} aria-label="Back to Some Kind of Game (home)">
+                {/* Provide natural width/height; CSS controls actual size */}
+                <Image
+                  src="/banner.png"
+                  width={800}
+                  height={200}
+                  priority
+                  alt="Some Kind of Game"
+                  className="h-10 md:h-12 w-auto object-contain"
+                />
+              </a>
+            </div>
 
-            {/* RIGHT */}
+            {/* RIGHT: New Game */}
             <div className="justify-self-end">
               <Link href="/play/setup" className="skg-btn px-3 py-1 rounded-lg">
                 New Game
