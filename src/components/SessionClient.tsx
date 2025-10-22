@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import GameCard from "./GameCard";
 import ClientScoreBoard from "./ClientScoreBoard";
 
-type Game = { id: string; title: string; slug: string; content?: string };
+type Game = { id: string; title: string; slug: string; content?: string; excerpt?: string };
+
 
 type Props = {
   games: Game[];
@@ -82,7 +83,13 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
       {/* Current game card */}
       <div className="w-full max-w-xl">
         {current ? (
-          <GameCard title={current.title} slug={current.slug} content={current.content} />
+          <GameCard
+  title={current.title}
+  slug={current.slug}
+  content={current.content}
+  excerpt={current.excerpt}
+/>
+
         ) : (
           <p className="opacity-75">No games loaded.</p>
         )}

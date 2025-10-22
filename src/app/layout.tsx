@@ -23,7 +23,7 @@ export default function RootLayout({
     href="/"
     className="text-2xl font-bold skg-accent hover:opacity-90 transition-colors"
   >
-    Some Kind of Game
+    Some Kind of Game 🥳
   </Link>
 
   <div className="flex items-center gap-3">
@@ -40,7 +40,7 @@ export default function RootLayout({
       href="/play/setup"
       className="skg-btn font-semibold py-2 px-4 rounded-xl transition-colors"
     >
-      🎲 New Game Session
+      🎲 New Game
     </Link>
   </div>
 </header>

@@ -124,7 +124,7 @@ export default function SetupPage() {
   const startGame = () => {
     const sessionId = Date.now().toString();
 
-    // remember current session id for iframe recovery
+    // remember current session id for iframe recovery (kept for safety)
     try {
       localStorage.setItem("skg-current-session-id", sessionId);
     } catch {}
@@ -185,25 +185,15 @@ export default function SetupPage() {
         </ul>
       </section>
 
-      {/* Filters */}
+      {/* Vibe + (optional) Tags */}
       <section className="w-full max-w-2xl mb-8">
-        <h2 className="text-xl font-bold mb-3">Filters</h2>
-
-        {/* Small debug line so you know what happened */}
-        <p className="text-sm opacity-75 mb-2">
-          {taxLoading
-            ? "Loading categories/tags…"
-            : taxError
-            ? `Could not load taxonomies: ${taxError}`
-            : `Loaded ${categories.length} categories, ${tags.length} tags`}
-        </p>
-
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className={`grid ${tags.length > 0 ? "md:grid-cols-2" : "grid-cols-1"} gap-6`}>
+          {/* Vibe (was Categories) */}
           <div>
-            <h3 className="font-semibold mb-2">Categories</h3>
+            <h3 className="font-semibold mb-2">Vibe</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {categories.length === 0 && !taxLoading && !taxError && (
-                <p className="text-sm opacity-70">No categories found.</p>
+              {(!taxLoading && !taxError && categories.length === 0) && (
+                <p className="text-sm opacity-70">No vibes found.</p>
               )}
               {categories.map((c) => (
                 <label key={c.id} className="flex items-center gap-2">
@@ -218,31 +208,36 @@ export default function SetupPage() {
             </div>
           </div>
 
-          <div>
-            <h3 className="font-semibold mb-2">Tags</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {tags.length === 0 && !taxLoading && !taxError && (
-                <p className="text-sm opacity-70">No tags found.</p>
-              )}
-              {tags.map((t) => (
-                <label key={t.id} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={chosenTagIds.includes(t.id)}
-                    onChange={() => toggle(chosenTagIds, t.id, setChosenTagIds)}
-                  />
-                  <span>{t.name}</span>
-                </label>
-              ))}
+          {/* Tags — hidden entirely when none */}
+          {tags.length > 0 && (
+            <div>
+              <h3 className="font-semibold mb-2">Tags</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {tags.map((t) => (
+                  <label key={t.id} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={chosenTagIds.includes(t.id)}
+                      onChange={() => toggle(chosenTagIds, t.id, setChosenTagIds)}
+                    />
+                    <span>{t.name}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
+
+        {/* If you want to surface errors, keep this tiny line; else you can delete it */}
+        {taxError && (
+          <p className="text-sm opacity-75 mt-2">Could not load filters: {taxError}</p>
+        )}
       </section>
 
       <button
         onClick={startGame}
         className="skg-btn px-5 py-2 rounded-xl font-semibold disabled:opacity-50"
-        disabled={players.length === 0 || numGames < 1}
+        disabled={disableStart}
       >
         Start Game
       </button>
