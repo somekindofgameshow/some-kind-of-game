@@ -57,12 +57,7 @@ export default async function SessionPage({
   return (
     <main className="min-h-screen flex flex-col items-center p-8">
       
-      {(catIds.length > 0 || tagIds.length > 0) && (
-        /*<p className="opacity-80 mb-4 text-sm">
-          Filters: {catIds.length ? `Categories(${catIds.join(", ")}) ` : ""}
-          {tagIds.length ? `Tags(${tagIds.join(", ")})` : ""}
-        </p>*/
-      )}
+      
 
       {/* NEW: One-at-a-time flow with sticky scoreboard */}
       <SessionClient
