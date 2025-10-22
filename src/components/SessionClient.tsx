@@ -13,7 +13,7 @@ type Props = {
 };
 
 export default function SessionClient({ games, players, initialSessionId }: Props) {
-  // Recover sessionId via ClientScoreBoard logic too
+  // Recover sessionId if not in URL (works with iframe refreshes)
   const [sessionId, setSessionId] = useState<string | undefined>(initialSessionId);
 
   useEffect(() => {
@@ -60,67 +60,61 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
   const current = games[index];
 
   return (
-    <div className="w-full max-w-6xl grid gap-6 md:grid-cols-[360px,1fr]">
-      {/* LEFT: sticky scoreboard */}
-      <aside className="md:sticky md:top-24 h-max">
+    <div className="w-full flex flex-col items-center gap-6">
+      {/* TOP: Scoreboard (non-sticky) */}
+      <div className="w-full max-w-3xl">
         <ClientScoreBoard players={players} initialSessionId={effectiveSessionId} />
-      </aside>
+      </div>
 
-      {/* RIGHT: game viewer + progress */}
-      <section className="flex flex-col items-center">
-        {/* Progress header */}
-        <div className="w-full mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <p className="text-sm opacity-80">
-              Game {Math.min(index + 1, games.length)} of {games.length}
-            </p>
-            <p className="text-sm opacity-80">{progressPct}%</p>
-          </div>
-          <div className="h-2 rounded bg-white/10 overflow-hidden">
-            <div
-              className="h-full bg-white/70"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
+      {/* Progress header */}
+      <div className="w-full max-w-3xl">
+        <div className="flex justify-between items-center mb-2">
+          <p className="text-sm opacity-80">
+            Game {Math.min(index + 1, games.length)} of {games.length}
+          </p>
+          <p className="text-sm opacity-80">{progressPct}%</p>
         </div>
+        <div className="h-2 rounded bg-white/10 overflow-hidden">
+          <div className="h-full bg-white/70" style={{ width: `${progressPct}%` }} />
+        </div>
+      </div>
 
-        {/* Current game card */}
+      {/* Current game card */}
+      <div className="w-full max-w-xl">
         {current ? (
-          <div className="w-full max-w-xl">
-            <GameCard title={current.title} slug={current.slug} content={current.content} />
-          </div>
+          <GameCard title={current.title} slug={current.slug} content={current.content} />
         ) : (
           <p className="opacity-75">No games loaded.</p>
         )}
+      </div>
 
-        {/* Controls */}
-        <div className="mt-4 flex gap-3">
-          <button
-            onClick={prev}
-            disabled={index === 0}
-            className="px-4 py-2 rounded-xl font-semibold disabled:opacity-40"
-            style={{ background: "#374151", color: "#fff" }}
-          >
-            Previous
+      {/* Controls */}
+      <div className="mt-2 flex gap-3">
+        <button
+          onClick={prev}
+          disabled={index === 0}
+          className="px-4 py-2 rounded-xl font-semibold disabled:opacity-40"
+          style={{ background: "#374151", color: "#fff" }}
+        >
+          Previous
+        </button>
+        {!atLast ? (
+          <button onClick={next} className="skg-btn px-4 py-2 rounded-xl font-semibold">
+            Next Game
           </button>
-          {!atLast ? (
-            <button onClick={next} className="skg-btn px-4 py-2 rounded-xl font-semibold">
-              Next Game
-            </button>
-          ) : (
-            <button onClick={resetProgress} className="skg-btn px-4 py-2 rounded-xl font-semibold">
-              Restart Session
-            </button>
-          )}
-        </div>
-
-        {atLast && (
-          <p className="mt-3 text-sm opacity-80">
-            🎉 You reached the end. You can press <b>Restart Session</b> or use the
-            scoreboard’s <b>End Game</b> to announce the winner.
-          </p>
+        ) : (
+          <button onClick={resetProgress} className="skg-btn px-4 py-2 rounded-xl font-semibold">
+            Restart Session
+          </button>
         )}
-      </section>
+      </div>
+
+      {atLast && (
+        <p className="mt-1 text-sm opacity-80">
+          🎉 You reached the end. You can press <b>Restart Session</b> or use the
+          scoreboard’s <b>End Game</b> to announce the winner.
+        </p>
+      )}
     </div>
   );
 }
