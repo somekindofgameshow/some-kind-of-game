@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import GameCard from "./GameCard";
 import ClientScoreBoard from "./ClientScoreBoard";
+import HeaderPortal from "@/components/HeaderPortal";
 
 type Game = { id: string; title: string; slug: string; content?: string; excerpt?: string };
-
 
 type Props = {
   games: Game[];
@@ -62,8 +62,15 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
 
   return (
     <div className="w-full flex flex-col items-center gap-6">
-      {/* TOP: Scoreboard (non-sticky) */}
-      <div className="w-full max-w-3xl">
+      {/* ✅ Scoreboard rendered in HEADER on desktop+ via portal */}
+      <HeaderPortal>
+        <div className="hidden md:block scale-90 origin-right">
+          <ClientScoreBoard players={players} initialSessionId={effectiveSessionId} />
+        </div>
+      </HeaderPortal>
+
+      {/* ✅ In-page scoreboard for mobile only */}
+      <div className="w-full max-w-3xl md:hidden">
         <ClientScoreBoard players={players} initialSessionId={effectiveSessionId} />
       </div>
 
@@ -84,12 +91,11 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
       <div className="w-full max-w-xl">
         {current ? (
           <GameCard
-  title={current.title}
-  slug={current.slug}
-  content={current.content}
-  excerpt={current.excerpt}
-/>
-
+            title={current.title}
+            slug={current.slug}
+            content={current.content}
+            excerpt={current.excerpt}
+          />
         ) : (
           <p className="opacity-75">No games loaded.</p>
         )}

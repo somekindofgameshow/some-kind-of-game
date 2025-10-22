@@ -1,57 +1,58 @@
+/* src/app/layout.tsx */
+import type { Metadata } from "next";
 import "./globals.css";
 import Link from "next/link";
-import { Inter } from "next/font/google";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Some Kind of Game",
-  description: "Party game web app powered by WordPress + Next.js",
+  description: "Party game launcher",
 };
-
-const inter = Inter({ subsets: ["latin"] });
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // If you want to use an env var for blog URL, set NEXT_PUBLIC_BLOG_URL in Vercel.
+  const blogUrl =
+    process.env.NEXT_PUBLIC_BLOG_URL || "https://somekindofgame.com";
+
   return (
     <html lang="en">
-      <body className={`${inter.className} skg-bg skg-text flex flex-col min-h-screen font-sans`}>
-        {/* HEADER */}
-        <header className="skg-surface border-b skg-border py-4 px-6 flex justify-between items-center sticky top-0 z-50">
-  <Link
-    href="/"
-    className="text-2xl font-bold skg-accent hover:opacity-90 transition-colors"
-  >
-    Some Kind of Game 🥳
-  </Link>
+      <body
+        className={`bg-black text-white flex flex-col min-h-screen font-sans`}
+      >
+        {/* Header */}
+        <header className="skg-surface border-b skg-border px-4 py-3 sticky top-0 z-50">
+          <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
+            {/* LEFT: Back button — replaces big site title */}
+            <div className="flex items-center gap-3">
+              <a
+                href={blogUrl}
+                className="skg-btn px-3 py-1 rounded-lg inline-flex items-center gap-2"
+              >
+                <span>←</span>
+                <span>Back to Some Kind of Game</span>
+              </a>
+            </div>
 
-  <div className="flex items-center gap-3">
-    {/* NEW: Back to blog button */}
-    <a
-      href="https://somekindofgame.com"
-      className="px-4 py-2 rounded-xl font-semibold bg-gray-700 hover:bg-gray-600 transition-colors"
-    >
-      ⬅ Back to Blog
-    </a>
+            {/* RIGHT: scoreboard portal slot + New Game */}
+            <div className="flex items-center gap-3">
+              {/* The session page will portal the Scoreboard here */}
+              <div id="header-scoreboard-slot" className="hidden md:block" />
 
-    {/* Existing Play button */}
-    <Link
-      href="/play/setup"
-      className="skg-btn font-semibold py-2 px-4 rounded-xl transition-colors"
-    >
-      🎲 New Game
-    </Link>
-  </div>
-</header>
+              <Link
+                href="/play/setup"
+                className="skg-btn px-3 py-1 rounded-lg"
+              >
+                New Game
+              </Link>
+            </div>
+          </div>
+        </header>
 
-        {/* MAIN */}
-        <main className="flex-grow flex flex-col items-center">{children}</main>
-
-        {/* FOOTER */}
-        <footer className="skg-surface border-t skg-border text-sm py-3 text-center">
-          © {new Date().getFullYear()} Some Kind of Game — built with Next.js + WPGraphQL
-        </footer>
+        {/* Page content */}
+        <main className="flex-1">{children}</main>
       </body>
     </html>
   );
