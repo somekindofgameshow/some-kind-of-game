@@ -7,7 +7,7 @@ type Props = {
   slug?: string;
   content?: string;  // WP HTML
   excerpt?: string;
-  uri: string;
+  uri?: string;
 };
 
 export default function GameCard({ title, slug, content, excerpt }: Props) {
