@@ -4,12 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import GameCard from "./GameCard";
 import ClientScoreBoard from "./ClientScoreBoard";
 import CommentBox from "@/components/CommentBox";
-import type { Game } from "@/types/game"; // ✅ use the shared type only
+import type { Game } from "@/types/game"; // full game shape from your shared type
 
 type Props = {
-  games: Game[];
-  players: string[];
-  initialSessionId?: string;
+  games: Game[];                 // <-- full games, not a minimized shape
+  players: string[];             // <-- you use this in the scoreboard
+  initialSessionId?: string;     // <-- you use this for persistence
 };
 
 export default function SessionClient({ games, players, initialSessionId }: Props) {
@@ -39,7 +39,9 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
     try {
       const raw = localStorage.getItem(PROGRESS_KEY);
       const n = raw ? Number(raw) : 0;
-      if (!Number.isNaN(n)) setIndex(Math.min(Math.max(n, 0), Math.max(games.length - 1, 0)));
+      if (!Number.isNaN(n)) {
+        setIndex(Math.min(Math.max(n, 0), Math.max(games.length - 1, 0)));
+      }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [PROGRESS_KEY, games.length]);
@@ -87,7 +89,7 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
             slug={current.slug}
             content={current.content}
             excerpt={current.excerpt}
-            uri={current.uri}
+            uri={current.uri}          // GameCard accepts uri?: string, so this is fine
           />
         ) : (
           <p className="opacity-75">No games loaded.</p>
@@ -121,11 +123,12 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
         </p>
       )}
 
-      {/* Feedback box (posts WP comments) */}
+      {/* Comment box below the card */}
       <CommentBox
-        games={games.map(g => ({ databaseId: g.databaseId, title: g.title }))}
-        currentDatabaseId={current?.databaseId}
-      />
+  games={games.map(g => ({ databaseId: g.databaseId, title: g.title }))}
+  activeGameId={current?.databaseId}
+/>
+
     </div>
   );
 }

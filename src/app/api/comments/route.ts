@@ -1,56 +1,53 @@
+// src/app/api/comments/route.ts
 import { NextResponse } from "next/server";
+
+const WP_BASE = process.env.WP_BASE_URL || "https://somekindofgame.com";
 
 export async function POST(req: Request) {
   try {
-    const { postId, authorName, authorEmail, content } = await req.json();
+    const { postId, author_name, author_email, content } = await req.json();
 
-    if (!postId || !content || typeof content !== "string") {
-      return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
-    }
-
-    // Basic input limits (anti-abuse)
-    if (content.length > 4000) {
-      return NextResponse.json({ error: "Comment too long." }, { status: 400 });
-    }
-
-    const base = process.env.WP_API_BASE?.replace(/\/+$/, "");
-    const user = process.env.WP_APP_USER;
-    const pass = process.env.WP_APP_PASSWORD;
-
-    if (!base || !user || !pass) {
+    if (!postId || !content?.trim()) {
       return NextResponse.json(
-        { error: "Server is not configured for WordPress comments." },
-        { status: 500 }
+        { error: "postId and content are required" },
+        { status: 400 }
       );
     }
 
-    const auth = Buffer.from(`${user}:${pass}`).toString("base64");
-
-    const wpRes = await fetch(`${base}/wp-json/wp/v2/comments`, {
+    // WordPress REST: create a public (unauthenticated) comment
+    const res = await fetch(`${WP_BASE}/wp-json/wp/v2/comments`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${auth}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         post: Number(postId),
+        author_name: author_name || undefined,
+        author_email: author_email || undefined,
         content,
-        author_name: authorName || "Anonymous",
-        author_email: authorEmail || undefined, // optional; WP may require it depending on settings
       }),
     });
 
-    const data = await wpRes.json();
+    const data = await res.json();
 
-    if (!wpRes.ok) {
+    if (!res.ok) {
       return NextResponse.json(
-        { error: "WP error", details: data },
-        { status: wpRes.status }
+        { error: data?.message || "WordPress rejected the comment" },
+        { status: res.status }
       );
     }
 
-    return NextResponse.json({ ok: true, data }, { status: 200 });
+    // status can be "approved" or "hold"
+    return NextResponse.json({
+      id: data.id,
+      status: data.status, // "approved" | "hold"
+      message:
+        data.status === "hold"
+          ? "Thanks! Your comment was submitted for moderation."
+          : "Thanks! Your comment is posted.",
+    });
   } catch (e: any) {
-    return NextResponse.json({ error: "Unexpected error", details: String(e) }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message || "Unexpected server error" },
+      { status: 500 }
+    );
   }
 }

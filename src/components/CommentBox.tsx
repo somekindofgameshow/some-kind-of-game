@@ -1,70 +1,86 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
-type GameLite = { databaseId: number; title: string };
+type GameOption = { databaseId: number; title: string };
 
 type Props = {
-  games: GameLite[];
-  currentDatabaseId?: number;
+  games: GameOption[];
+  /** Prefill/select the currently shown game */
+  activeGameId?: number;
 };
 
-export default function CommentBox({ games, currentDatabaseId }: Props) {
-  const [postId, setPostId] = useState<number | undefined>(currentDatabaseId ?? games[0]?.databaseId);
-  const [authorName, setAuthorName] = useState("");
-  const [authorEmail, setAuthorEmail] = useState("");
-  const [content, setContent] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  const sorted = useMemo(
-    () => [...games].sort((a, b) => a.title.localeCompare(b.title)),
-    [games]
+export default function CommentBox({ games, activeGameId }: Props) {
+  const [postId, setPostId] = useState<number | null>(
+    activeGameId ?? games[0]?.databaseId ?? null
   );
 
-  const submit = async () => {
-    setMsg(null);
-    if (!postId) return setMsg("Select a game.");
-    if (!content.trim()) return setMsg("Please write a comment.");
+  // Keep the select in sync when the current card changes
+  useEffect(() => {
+    if (activeGameId) setPostId(activeGameId);
+  }, [activeGameId]);
 
-    setBusy(true);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [content, setContent] = useState("");
+
+  const [status, setStatus] = useState<
+    "idle" | "sending" | "ok" | "err" | "misconf"
+  >("idle");
+  const [message, setMessage] = useState("");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!postId || !content.trim()) return;
+
+    setStatus("sending");
+    setMessage("");
+
     try {
       const res = await fetch("/api/comments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           postId,
-          authorName: authorName.trim() || undefined,
-          authorEmail: authorEmail.trim() || undefined,
-          content: content.trim(),
+          authorName: name || undefined,
+          authorEmail: email || undefined,
+          content,
         }),
       });
-      const data = await res.json();
 
-      if (!res.ok) throw new Error(data?.error || "Failed to submit");
+      const json = await res.json();
 
-      setMsg("Thanks! Your feedback was submitted and may appear after moderation.");
+      if (!res.ok) {
+        setStatus("misconf");
+        setMessage(json?.error || "Server is not configured for WordPress comments.");
+        return;
+      }
+
+      setStatus("ok");
+      setMessage("Thanks! Your feedback was submitted.");
       setContent("");
-    } catch (e: any) {
-      setMsg(e?.message || "Something went wrong.");
-    } finally {
-      setBusy(false);
+    } catch (err: any) {
+      setStatus("err");
+      setMessage(err?.message || "Something went wrong.");
     }
-  };
+  }
 
   return (
-    <section className="w-full max-w-3xl mt-8 p-4 rounded-2xl skg-surface skg-border">
-      <h3 className="text-lg font-semibold mb-3">Feedback</h3>
+    <form
+      onSubmit={submit}
+      className="w-full max-w-3xl rounded-2xl skg-surface skg-border p-4 md:p-6 mt-4 space-y-3"
+    >
+      <h3 className="text-lg font-semibold">Feedback</h3>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <label className="flex flex-col gap-1">
-          <span className="text-sm opacity-80">Game</span>
+      <div className="grid md:grid-cols-3 gap-3">
+        <label className="md:col-span-1 text-sm opacity-80">
+          Game
           <select
-            value={postId}
+            className="w-full mt-1 text-black rounded-md px-2 py-1"
+            value={postId ?? undefined}
             onChange={(e) => setPostId(Number(e.target.value))}
-            className="rounded px-3 py-2 bg-black/40 border border-white/15"
           >
-            {sorted.map((g) => (
+            {games.map((g) => (
               <option key={g.databaseId} value={g.databaseId}>
                 {g.title}
               </option>
@@ -72,50 +88,60 @@ export default function CommentBox({ games, currentDatabaseId }: Props) {
           </select>
         </label>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1">
-            <span className="text-sm opacity-80">Name (optional)</span>
-            <input
-              value={authorName}
-              onChange={(e) => setAuthorName(e.target.value)}
-              className="rounded px-3 py-2 bg-black/40 border border-white/15"
-              placeholder="Your name"
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-sm opacity-80">Email (optional)</span>
-            <input
-              type="email"
-              value={authorEmail}
-              onChange={(e) => setAuthorEmail(e.target.value)}
-              className="rounded px-3 py-2 bg-black/40 border border-white/15"
-              placeholder="your@email.com"
-            />
-          </label>
-        </div>
+        <label className="text-sm opacity-80">
+          Name (optional)
+          <input
+            className="w-full mt-1 text-black rounded-md px-2 py-1"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="your name"
+          />
+        </label>
+
+        <label className="text-sm opacity-80">
+          Email (optional)
+          <input
+            type="email"
+            className="w-full mt-1 text-black rounded-md px-2 py-1"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="your@email.com"
+          />
+        </label>
       </div>
 
-      <label className="flex flex-col gap-1 mt-3">
-        <span className="text-sm opacity-80">Your feedback</span>
+      <label className="block text-sm opacity-80">
+        Your feedback
         <textarea
+          rows={4}
+          className="w-full mt-1 text-black rounded-md px-3 py-2"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          rows={4}
-          className="rounded px-3 py-2 bg-black/40 border border-white/15"
-          placeholder="What worked? What didn’t?"
+          placeholder="What did your group think?"
         />
       </label>
 
-      <div className="flex items-center gap-3 mt-3">
+      <div className="flex items-center gap-3">
         <button
-          onClick={submit}
-          disabled={busy}
           className="skg-btn px-4 py-2 rounded-lg disabled:opacity-50"
+          disabled={!postId || !content.trim() || status === "sending"}
         >
-          {busy ? "Sending..." : "Submit"}
+          Submit
         </button>
-        {msg && <p className="text-sm opacity-80">{msg}</p>}
+        {message && (
+          <p
+            className={`text-sm ${
+              status === "ok"
+                ? "text-green-400"
+                : status === "misconf" || status === "err"
+                ? "text-red-400"
+                : "opacity-80"
+            }`}
+          >
+            {message}
+          </p>
+        )}
       </div>
-    </section>
+    </form>
   );
 }
