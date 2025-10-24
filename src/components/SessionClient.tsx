@@ -3,8 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import GameCard from "./GameCard";
 import ClientScoreBoard from "./ClientScoreBoard";
+import CommentBox from "@/components/CommentBox";
 
-type Game = { id: string; title: string; slug: string; content?: string; excerpt?: string };
+type Game = {
+  id: string;
+  databaseId: number;
+  title: string;
+  slug: string;
+  content?: string;
+  excerpt?: string;
+  uri?: string; // make optional
+};
 
 type Props = {
   games: Game[];
@@ -87,6 +96,7 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
             slug={current.slug}
             content={current.content}
             excerpt={current.excerpt}
+            uri={current.uri}
           />
         ) : (
           <p className="opacity-75">No games loaded.</p>
@@ -119,6 +129,12 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
           🎉 You reached the end. You can press <b>Restart Session</b> or use the scoreboard’s <b>End Game</b> to announce the winner.
         </p>
       )}
+
+      {/* --- Feedback box (posts WP comments) --- */}
+      <CommentBox
+        games={games.map(g => ({ databaseId: g.databaseId, title: g.title }))}
+        currentDatabaseId={current?.databaseId}
+      />
     </div>
   );
 }
