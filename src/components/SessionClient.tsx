@@ -4,18 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import GameCard from "./GameCard";
 import ClientScoreBoard from "./ClientScoreBoard";
 import CommentBox from "@/components/CommentBox";
-import type { Game } from "@/types/game"; // <-- use shared type
-
-
-type Game = {
-  id: string;
-  databaseId: number;
-  title: string;
-  slug: string;
-  content?: string;
-  excerpt?: string;
-  uri?: string; // make optional
-};
+import type { Game } from "@/types/game"; // ✅ use the shared type only
 
 type Props = {
   games: Game[];
@@ -132,7 +121,7 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
         </p>
       )}
 
-      {/* --- Feedback box (posts WP comments) --- */}
+      {/* Feedback box (posts WP comments) */}
       <CommentBox
         games={games.map(g => ({ databaseId: g.databaseId, title: g.title }))}
         currentDatabaseId={current?.databaseId}
