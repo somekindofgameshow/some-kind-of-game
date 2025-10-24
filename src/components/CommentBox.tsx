@@ -76,7 +76,7 @@ export default function CommentBox({ games, activeGameId }: Props) {
         <label className="md:col-span-1 text-sm opacity-80">
           Game
           <select
-            className="w-full mt-1 text-black rounded-md px-2 py-1"
+            className="w-full mt-1 text-white rounded-md px-2 py-1"
             value={postId ?? undefined}
             onChange={(e) => setPostId(Number(e.target.value))}
           >
@@ -91,7 +91,7 @@ export default function CommentBox({ games, activeGameId }: Props) {
         <label className="text-sm opacity-80">
           Name (optional)
           <input
-            className="w-full mt-1 text-black rounded-md px-2 py-1"
+            className="w-full mt-1 text-white rounded-md px-2 py-1"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="your name"
@@ -102,7 +102,7 @@ export default function CommentBox({ games, activeGameId }: Props) {
           Email (optional)
           <input
             type="email"
-            className="w-full mt-1 text-black rounded-md px-2 py-1"
+            className="w-full mt-1 text-white rounded-md px-2 py-1"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="your@email.com"
@@ -114,10 +114,10 @@ export default function CommentBox({ games, activeGameId }: Props) {
         Your feedback
         <textarea
           rows={4}
-          className="w-full mt-1 text-black rounded-md px-3 py-2"
+          className="w-full mt-1 text-white rounded-md px-3 py-2"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="What did your group think?"
+          placeholder="Feedback and ideas"
         />
       </label>
 

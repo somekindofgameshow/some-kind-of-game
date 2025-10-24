@@ -1,46 +1,85 @@
 // src/app/api/comments/route.ts
 import { NextResponse } from "next/server";
 
+/**
+ * Configure your WordPress base URL in Vercel env if you like:
+ *   WP_BASE_URL = https://somekindofgame.com
+ */
 const WP_BASE = process.env.WP_BASE_URL || "https://somekindofgame.com";
+
+/**
+ * Optional (recommended for reliability across all devices):
+ * Create a WordPress Application Password and set these env vars:
+ *   WP_BASIC_USER=<your-wp-username-or-email>
+ *   WP_BASIC_APP_PASSWORD=<generated-application-password>
+ *
+ * If both are present, this route will authenticate to WP and bypass the
+ * “must be logged in to comment” gate even if your WP requires it.
+ */
+const WP_USER = process.env.WP_BASIC_USER;
+const WP_APP_PASS = process.env.WP_BASIC_APP_PASSWORD;
 
 export async function POST(req: Request) {
   try {
-    const { postId, author_name, author_email, content } = await req.json();
+    const body = await req.json();
 
-    if (!postId || !content?.trim()) {
+    // Accept both snake_case and camelCase from the client
+    const postId = Number(body.postId ?? body.postID ?? body.post);
+    const author_name = (body.author_name ?? body.authorName ?? "").trim();
+    const author_email = (body.author_email ?? body.authorEmail ?? "").trim();
+    const content = String(body.content ?? "").trim();
+
+    if (!postId || !content) {
       return NextResponse.json(
         { error: "postId and content are required" },
         { status: 400 }
       );
     }
 
-    // WordPress REST: create a public (unauthenticated) comment
-    const res = await fetch(`${WP_BASE}/wp-json/wp/v2/comments`, {
+    const url = `${WP_BASE}/wp-json/wp/v2/comments`;
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    // If credentials are provided, authenticate the request to WP.
+    if (WP_USER && WP_APP_PASS) {
+      const token = Buffer.from(`${WP_USER}:${WP_APP_PASS}`).toString("base64");
+      headers.Authorization = `Basic ${token}`;
+    }
+
+    const payload: Record<string, any> = {
+      post: postId,
+      content,
+    };
+    if (author_name) payload.author_name = author_name;
+    if (author_email) payload.author_email = author_email;
+
+    const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        post: Number(postId),
-        author_name: author_name || undefined,
-        author_email: author_email || undefined,
-        content,
-      }),
+      headers,
+      body: JSON.stringify(payload),
+      // don't cache comment posts
+      cache: "no-store",
     });
 
     const data = await res.json();
 
     if (!res.ok) {
+      // Pass through the WP message when available
       return NextResponse.json(
         { error: data?.message || "WordPress rejected the comment" },
         { status: res.status }
       );
     }
 
-    // status can be "approved" or "hold"
+    // WP returns "approved" or "hold" (awaiting moderation)
+    const status: string = data?.status || "hold";
     return NextResponse.json({
-      id: data.id,
-      status: data.status, // "approved" | "hold"
+      id: data?.id ?? null,
+      status,
       message:
-        data.status === "hold"
+        status === "hold"
           ? "Thanks! Your comment was submitted for moderation."
           : "Thanks! Your comment is posted.",
     });
