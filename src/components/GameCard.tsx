@@ -89,7 +89,6 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
     (async () => {
       const { default: DOMPurify } = await import("isomorphic-dompurify");
       const cleaned = DOMPurify.sanitize(rawHtml, {
-        // Expanded allow-list to keep Elementor text & structure
         ALLOWED_TAGS: [
           "p", "br", "strong", "em", "b", "i", "u", "span",
           "ul", "ol", "li", "blockquote", "hr", "code", "pre",
@@ -105,11 +104,10 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
         ALLOWED_ATTR: [
           "href", "title", "target", "rel",
           "src", "alt", "width", "height", "loading",
-          "class", "id", "style", // keep lightweight styling/classnames from Elementor
+          "class", "id", "style",
           "aria-label", "role"
         ],
         ALLOW_DATA_ATTR: false,
-        // note: DOMPurify will strip disallowed tags but keep their text content
       });
       if (!canceled) setClientHtml(cleaned);
     })();
@@ -131,27 +129,42 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
       aria-label={title}
       role="group"
     >
+      {/* meta line */}
       <div className="flex items-center gap-2 text-xs opacity-70">
         <div className="h-3 w-3 rounded-full bg-white/70" />
         {slug && <span className="truncate">{slug}</span>}
       </div>
 
+      {/* CONTENT: left aligned, preserve WP formatting */}
       <div
         className="
-          text-center font-semibold leading-tight text-pretty
-          text-[clamp(18px,3.0vw,26px)]
-          [&_p]:mb-3
-          [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:text-left [&_ul>li]:mb-2
-          [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:text-left [&_ol>li]:mb-2
-          [&_blockquote]:italic [&_blockquote]:opacity-90 [&_blockquote]:mx-auto [&_blockquote]:max-w-prose
+          text-left leading-relaxed text-pretty
+          text-[clamp(16px,2.6vw,20px)]
+
+          [&_p]:mb-4
+          [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:mb-3
+          [&_h2]:text-xl  [&_h2]:font-semibold [&_h2]:mb-3
+          [&_h3]:text-lg  [&_h3]:font-semibold [&_h3]:mb-2
+
+          [&_ul]:list-disc   [&_ul]:pl-6 [&_ul>li]:mb-1
+          [&_ol]:list-decimal [&_ol]:pl-6 [&_ol>li]:mb-1
+
+          [&_blockquote]:italic [&_blockquote]:opacity-90 [&_blockquote]:border-l [&_blockquote]:pl-4 [&_blockquote]:ml-0
+
           [&_a]:underline
+
           [&_img]:rounded-xl [&_img]:mx-auto [&_img]:my-4 [&_img]:max-h-72 [&_img]:object-contain
-          [&_div]:mb-3 [&_section]:mb-3  /* Elementor wrappers get spacing */
+
+          [&_table]:w-full [&_table]:text-left [&_th]:font-semibold [&_td]:align-top [&_td]:py-1
+
+          /* If Elementor injects text-align:center inline, force left */
+          [&_p]:!text-left [&_div]:!text-left [&_section]:!text-left [&_span]:!text-left [&_li]:!text-left
         "
         suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: finalHtml }}
       />
 
+      {/* footer note */}
       <div className="mt-2 text-xs opacity-70 text-left">{title}</div>
     </article>
   );
