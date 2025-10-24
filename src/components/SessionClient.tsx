@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import GameCard from "./GameCard";
 import ClientScoreBoard from "./ClientScoreBoard";
 import CommentBox from "@/components/CommentBox";
+import type { Game } from "@/types/game"; // <-- use shared type
+
 
 type Game = {
   id: string;
