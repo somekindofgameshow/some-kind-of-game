@@ -3,13 +3,27 @@
 import { useEffect, useMemo, useState } from "react";
 import GameCard from "./GameCard";
 import ClientScoreBoard from "./ClientScoreBoard";
-import CommentBox from "@/components/CommentBox";
-import type { Game } from "@/types/game"; // full game shape from your shared type
+
+// If you prefer to avoid hardcoding the domain, set NEXT_PUBLIC_WP_BASE_URL
+// in Vercel and use it below. Falls back to your domain:
+const WP_BASE =
+  process.env.NEXT_PUBLIC_WP_BASE_URL || "https://somekindofgame.com";
+
+// Types kept inline to avoid any conflicts with shared types elsewhere.
+type GameItem = {
+  id: string;
+  databaseId: number;
+  title: string;
+  slug: string;
+  content?: string;
+  excerpt?: string;
+  uri?: string; // e.g. /family-game-night/sweet-nothings/
+};
 
 type Props = {
-  games: Game[];                 // <-- full games, not a minimized shape
-  players: string[];             // <-- you use this in the scoreboard
-  initialSessionId?: string;     // <-- you use this for persistence
+  games: GameItem[];
+  players: string[];
+  initialSessionId?: string;
 };
 
 export default function SessionClient({ games, players, initialSessionId }: Props) {
@@ -61,9 +75,15 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
 
   const current = games[index];
 
+  // Build blog URL for the current game
+  const blogUrl =
+    current?.uri
+      ? `${WP_BASE}${current.uri}`
+      : `${WP_BASE}/`; // fallback to home if no uri
+
   return (
     <div className="w-full flex flex-col items-center gap-6">
-      {/* Scoreboard back in the body (visible on all sizes) */}
+      {/* Scoreboard */}
       <div className="w-full max-w-3xl">
         <ClientScoreBoard players={players} sessionId={effectiveSessionId} />
       </div>
@@ -89,7 +109,7 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
             slug={current.slug}
             content={current.content}
             excerpt={current.excerpt}
-            uri={current.uri}          // GameCard accepts uri?: string, so this is fine
+            uri={current.uri}
           />
         ) : (
           <p className="opacity-75">No games loaded.</p>
@@ -119,16 +139,29 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
 
       {atLast && (
         <p className="mt-1 text-sm opacity-80">
-          🎉 You reached the end. You can press <b>Restart Session</b> or use the scoreboard’s <b>End Game</b> to announce the winner.
+          🎉 You reached the end. You can press <b>Restart Session</b> or use the scoreboard’s{" "}
+          <b>End Game</b> to announce the winner.
         </p>
       )}
 
-      {/* Comment box below the card */}
-      <CommentBox
-  games={games.map(g => ({ databaseId: g.databaseId, title: g.title }))}
-  activeGameId={current?.databaseId}
-/>
-
+      {/* Feedback link (replaces in-app comments) */}
+      {current && (
+        <div className="w-full max-w-3xl mt-2 rounded-2xl skg-surface skg-border p-4">
+          <h3 className="font-semibold mb-2">Feedback</h3>
+          <p className="opacity-90">
+            If you have any feedback on this game, please visit this blog post to leave a
+            comment:
+          </p>
+          <a
+            href={blogUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block mt-3 skg-btn px-4 py-2 rounded-lg"
+          >
+            Go to blog post ↗
+          </a>
+        </div>
+      )}
     </div>
   );
 }
