@@ -109,7 +109,7 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
             slug={current.slug}
             content={current.content}
             excerpt={current.excerpt}
-            uri={current.uri}
+            //uri={current.uri}
           />
         ) : (
           <p className="opacity-75">No games loaded.</p>
