@@ -1,67 +1,69 @@
+// src/components/FloatingFooter.tsx
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 /**
- * Floating footer with:
- * - full-width fixed bar
- * - collapsible content
- * - auto-hide on small screens (default collapsed if < md)
- * - a "peek" chip when collapsed so users can reopen
+ * Floating footer:
+ * - Expanded: full-width panel, centered content
+ * - Collapsed: full-width header-style bar with title + Show button
+ * - Auto-collapses on small screens by default (unless user chose otherwise)
+ * - Persists per sessionKey
  */
 export default function FloatingFooter({
   children,
   sessionKey = "default",
-  breakpointPx = 768, // Tailwind md breakpoint
-  peekLabel = "Scoreboard",
+  breakpointPx = 768, // Tailwind md
+  title = "Scoreboard",
+  showLabel = "Show",
+  hideLabel = "Hide",
 }: {
   children: React.ReactNode;
   sessionKey?: string;
   breakpointPx?: number;
-  peekLabel?: string;
+  title?: string;
+  showLabel?: string;
+  hideLabel?: string;
 }) {
-  const storageKey = `skg-footer-collapsed-${sessionKey}`;
-  const userSetKey = `skg-footer-userpref-${sessionKey}`;
-  const [collapsed, setCollapsed] = useState<boolean>(false);
+  const collapsedKey = `skg-footer-collapsed-${sessionKey}`;
+  const userPrefKey = `skg-footer-userpref-${sessionKey}`;
+  const [collapsed, setCollapsed] = useState(false);
   const userPrefSet = useRef(false);
 
-  // initial state: use saved pref if present; otherwise collapse on small screens
-  useEffect(() => {
-    let pref: string | null = null;
-    try {
-      pref = localStorage.getItem(storageKey);
-      const userPref = localStorage.getItem(userSetKey);
-      userPrefSet.current = userPref === "1";
-    } catch {}
-    if (pref !== null) {
-      setCollapsed(pref === "1");
-    } else if (typeof window !== "undefined") {
-      setCollapsed(window.innerWidth < breakpointPx);
-    }
-  }, [breakpointPx, storageKey]);
-
-  // persist whenever collapsed changes
+  // initial
   useEffect(() => {
     try {
-      localStorage.setItem(storageKey, collapsed ? "1" : "0");
+      const saved = localStorage.getItem(collapsedKey);
+      const up = localStorage.getItem(userPrefKey);
+      userPrefSet.current = up === "1";
+      if (saved !== null) {
+        setCollapsed(saved === "1");
+      } else {
+        setCollapsed(typeof window !== "undefined" && window.innerWidth < breakpointPx);
+      }
     } catch {}
-  }, [collapsed, storageKey]);
+  }, [breakpointPx, collapsedKey, userPrefKey]);
 
-  // responsive auto-toggle (only if user hasn't explicitly chosen yet)
+  // persist
+  useEffect(() => {
+    try {
+      localStorage.setItem(collapsedKey, collapsed ? "1" : "0");
+    } catch {}
+  }, [collapsed, collapsedKey]);
+
+  // responsive auto-collapse if user hasn't chosen yet
   useEffect(() => {
     function onResize() {
       if (userPrefSet.current) return;
-      const shouldCollapse = window.innerWidth < breakpointPx;
-      setCollapsed(shouldCollapse);
+      setCollapsed(window.innerWidth < breakpointPx);
     }
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, [breakpointPx]);
 
-  function toggleCollapsed(next?: boolean) {
-    const v = typeof next === "boolean" ? next : !collapsed;
+  function setCollapsedByUser(next: boolean) {
     userPrefSet.current = true;
-    try { localStorage.setItem(userSetKey, "1"); } catch {}
-    setCollapsed(v);
+    try { localStorage.setItem(userPrefKey, "1"); } catch {}
+    setCollapsed(next);
   }
 
   const panelClasses = useMemo(
@@ -81,45 +83,58 @@ export default function FloatingFooter({
     [collapsed]
   );
 
+  // Shared outer container pinned to bottom via FooterPortal wrapper
   return (
-    <div className="pointer-events-auto relative">
-      {/* Full-width bar at the bottom */}
+    <div className="pointer-events-auto">
       <div className="w-full px-3 pb-3">
-        <div className={panelClasses}>
-          {/* Header row */}
-          <div className="flex items-center justify-between px-3 py-2">
-            <div className="text-xs opacity-80">Scoreboard</div>
+        {/* Collapsed bar (header-like) */}
+        {collapsed && (
+          <div
+            className="rounded-t-xl bg-zinc-900/85 backdrop-blur border border-white/10 shadow-lg"
+            role="button"
+            aria-label={`${title} collapsed bar`}
+            // Clicking the bar (except the button) also opens
+            onClick={(e) => {
+              // avoid double-trigger when clicking the button
+              const isButton = (e.target as HTMLElement).closest("button");
+              if (!isButton) setCollapsedByUser(false);
+            }}
+          >
+            <div className="mx-auto max-w-5xl px-3 py-2 flex items-center justify-between">
+              <div className="text-xs opacity-80">{title}</div>
+              <button
+                className="skg-btn px-3 py-1 rounded-md text-xs"
+                onClick={() => setCollapsedByUser(false)}
+                aria-label="Show scoreboard"
+              >
+                {showLabel}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Expanded panel */}
+        <div className={panelClasses} aria-hidden={collapsed}>
+          <div className="mx-auto max-w-5xl px-3 py-2 flex items-center justify-between">
+            <div className="text-xs opacity-80">{title}</div>
             <button
               className="text-xs px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700"
-              onClick={() => toggleCollapsed(true)}
+              onClick={() => setCollapsedByUser(true)}
               aria-label="Hide scoreboard"
             >
-              Hide
+              {hideLabel}
             </button>
           </div>
 
-          {/* Content area: CENTER your scoreboard, allow full width */}
           <div className="px-3 pb-3">
             <div className="w-full flex justify-center">
-              {/* If you ever want the child to stretch, wrap it in w-full here */}
+              {/* make child full-width or constrain; choose one: */}
+              {/* <div className="w-full">{children}</div> */}
               <div className="w-full max-w-5xl">{children}</div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Peek mini-chip (only shown when collapsed) */}
-      {collapsed && (
-        <div className="absolute left-1/2 -translate-x-1/2 -translate-y-2 bottom-0">
-          <button
-            className="skg-btn px-3 py-1 rounded-full text-sm shadow-lg"
-            onClick={() => toggleCollapsed(false)}
-            aria-label="Show scoreboard"
-          >
-            {peekLabel}
-          </button>
-        </div>
-      )}
     </div>
   );
 }
