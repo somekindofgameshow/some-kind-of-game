@@ -2,158 +2,192 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import {
+  fetchTaxOptions,
+  fetchTagsForCategory,
+  type TaxItem,
+} from "@/lib/api";
 
 type SavedSetup = {
   numGames: number;
   players: string[];
-  categories: number[];
+  categoryId?: number | null;
   tags: number[];
 };
 
-type Term = { id: number; name: string };
-
 const STORAGE_KEY = "skg-setup";
+
+// Map category slug -> tag mode
+const TAG_MODE_BY_CATEGORY_SLUG: Record<string, "and" | "or"> = {
+  "party-games": "or",
+  "parents-and-kids": "and",
+};
 
 export default function SetupPage() {
   const router = useRouter();
 
+  // core state
   const [numGames, setNumGames] = useState(3);
   const [players, setPlayers] = useState<string[]>([]);
   const [newPlayer, setNewPlayer] = useState("");
 
-  const [categories, setCategories] = useState<Term[]>([]);
-  const [tags, setTags] = useState<Term[]>([]);
-  const [chosenCatIds, setChosenCatIds] = useState<number[]>([]);
-  const [chosenTagIds, setChosenTagIds] = useState<number[]>([]);
-  const [taxError, setTaxError] = useState<string | null>(null);
-  const [taxLoading, setTaxLoading] = useState(true);
+  // taxonomy state
+  const [cats, setCats] = useState<TaxItem[]>([]);
+  const [visibleTags, setVisibleTags] = useState<TaxItem[]>([]);
+  const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
 
-  // Load saved setup
+  const [taxError, setTaxError] = useState<string | null>(null);
+  const [catsLoading, setCatsLoading] = useState(true);
+  const [tagsLoading, setTagsLoading] = useState(false);
+
+  // load saved setup (best-effort)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const saved: SavedSetup = JSON.parse(raw);
-        if (saved?.numGames) setNumGames(saved.numGames);
-        if (saved?.players?.length) setPlayers(saved.players);
-        if (saved?.categories) setChosenCatIds(saved.categories);
-        if (saved?.tags) setChosenTagIds(saved.tags);
-      }
+      if (!raw) return;
+      const saved: SavedSetup = JSON.parse(raw);
+      if (typeof saved?.numGames === "number") setNumGames(saved.numGames);
+      if (Array.isArray(saved?.players)) setPlayers(saved.players);
+      if (typeof saved?.categoryId === "number") setCategoryId(saved.categoryId);
+      if (Array.isArray(saved?.tags)) setSelectedTagIds(saved.tags);
     } catch {}
   }, []);
 
-  // Save on change
+  // persist
   useEffect(() => {
     const saved: SavedSetup = {
       numGames,
       players,
-      categories: chosenCatIds,
-      tags: chosenTagIds,
+      categoryId,
+      tags: selectedTagIds,
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
-  }, [numGames, players, chosenCatIds, chosenTagIds]);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+    } catch {}
+  }, [numGames, players, categoryId, selectedTagIds]);
 
-  // Fetch categories & tags
+  // fetch categories (and all tags, then we’ll filter by category on demand)
   useEffect(() => {
-    const endpoint =
-      (process.env.NEXT_PUBLIC_WORDPRESS_API_URL as string) ||
-      "https://somekindofgame.com/graphql";
-
-    const query = `
-      query GetTaxonomies {
-        categories(first: 50) { nodes { databaseId name } }
-        tags(first: 50) { nodes { databaseId name } }
+    let cancelled = false;
+    (async () => {
+      try {
+        setCatsLoading(true);
+        setTaxError(null);
+        const { cats } = await fetchTaxOptions();
+        if (cancelled) return;
+        // Exclude "Uncategorized"
+        const filtered = (cats || []).filter(
+          (c) => (c.slug || "").toLowerCase() !== "uncategorized"
+        );
+        setCats(filtered);
+      } catch (e: any) {
+        console.error(e);
+        if (!cancelled) setTaxError(e?.message || String(e));
+      } finally {
+        if (!cancelled) setCatsLoading(false);
       }
-    `;
-
-    setTaxLoading(true);
-    setTaxError(null);
-
-    fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
-    })
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const json = await r.json();
-        if (json.errors) throw new Error(JSON.stringify(json.errors));
-
-        const cats: Term[] =
-          json?.data?.categories?.nodes?.map((n: any) => ({
-            id: n.databaseId,
-            name: n.name,
-          })) ?? [];
-        const tgs: Term[] =
-          json?.data?.tags?.nodes?.map((n: any) => ({
-            id: n.databaseId,
-            name: n.name,
-          })) ?? [];
-
-        setCategories(cats);
-        setTags(tgs);
-      })
-      .catch((e) => {
-        console.error("Taxonomy fetch failed:", e);
-        setTaxError(String(e));
-      })
-      .finally(() => setTaxLoading(false));
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const addPlayer = () => {
-    const name = newPlayer.trim();
-    if (name && !players.includes(name)) {
-      setPlayers([...players, name]);
-      setNewPlayer("");
-    }
-  };
+  // whenever category changes, load ONLY the tags used by posts in that category
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!categoryId) {
+        setVisibleTags([]);
+        return;
+      }
+      try {
+        setTagsLoading(true);
+        setTaxError(null);
+        const tags = await fetchTagsForCategory(categoryId);
+        if (cancelled) return;
+        setVisibleTags(tags);
+        // if our selectedTagIds include tags not in this category anymore, drop them
+        setSelectedTagIds((prev) =>
+          prev.filter((id) => tags.some((t) => t.databaseId === id))
+        );
+      } catch (e: any) {
+        console.error(e);
+        if (!cancelled) setTaxError(e?.message || String(e));
+      } finally {
+        if (!cancelled) setTagsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [categoryId]);
 
-  const removePlayer = (name: string) => {
-    setPlayers(players.filter((p) => p !== name));
-  };
+  // figure out tag mode
+  const tagMode = useMemo<"and" | "or" | null>(() => {
+    if (!categoryId) return null;
+    const cat = cats.find((c) => c.databaseId === categoryId);
+    if (!cat) return null;
+    const slug = (cat.slug || "").toLowerCase();
+    return TAG_MODE_BY_CATEGORY_SLUG[slug] ?? "or";
+  }, [categoryId, cats]);
 
-  const toggle = (arr: number[], id: number, setter: (v: number[]) => void) => {
-    setter(arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id]);
-  };
-
+  // helpers
   const disableStart = useMemo(
     () => players.length === 0 || numGames < 1,
     [players.length, numGames]
   );
 
-  const startGame = () => {
-    const sessionId = Date.now().toString();
+  function addPlayer() {
+    const name = newPlayer.trim();
+    if (name && !players.includes(name)) {
+      setPlayers([...players, name]);
+      setNewPlayer("");
+    }
+  }
+  function removePlayer(name: string) {
+    setPlayers(players.filter((p) => p !== name));
+  }
+  function toggleTag(id: number) {
+    setSelectedTagIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+  function onChooseCategory(id: number) {
+    setCategoryId(id);
+    setSelectedTagIds([]); // reset tags on category change
+  }
 
-    // remember current session id for iframe recovery (kept for safety)
+  function startGame() {
+    const sessionId = Date.now().toString();
     try {
       localStorage.setItem("skg-current-session-id", sessionId);
     } catch {}
-
     const params = new URLSearchParams({
-      count: numGames.toString(),
+      count: String(numGames),
       players: players.join(","),
       sessionId,
     });
-    if (chosenCatIds.length) params.set("c", chosenCatIds.join(","));
-    if (chosenTagIds.length) params.set("t", chosenTagIds.join(","));
-
+    if (categoryId) params.set("c", String(categoryId));
+    if (selectedTagIds.length) params.set("t", selectedTagIds.join(","));
+    if (tagMode) params.set("tm", tagMode);
     router.push(`/play/session?${params.toString()}`);
-  };
+  }
 
   return (
     <main className="min-h-screen flex flex-col items-center p-8">
       <h1 className="text-3xl font-bold mb-6">Setup Game</h1>
 
-      {/* Players */}
+      {/* Number of games + Players */}
       <section className="w-full max-w-2xl mb-8">
         <label className="block mb-2 font-semibold">Number of games</label>
         <input
           type="number"
           value={numGames}
           min={1}
-          max={20}
+          max={50}
           onChange={(e) => setNumGames(Number(e.target.value))}
-          className="text-white px-2 py-1 rounded mb-4"
+          className="text-white px-2 py-1 rounded mb-4 bg-zinc-900 border border-white/10"
         />
 
         <label className="block mb-2 font-semibold">Players</label>
@@ -163,7 +197,7 @@ export default function SetupPage() {
             value={newPlayer}
             onChange={(e) => setNewPlayer(e.target.value)}
             placeholder="Enter name"
-            className="flex-1 text-white px-2 py-1 rounded"
+            className="flex-1 text-white px-2 py-1 rounded bg-zinc-900 border border-white/10"
           />
           <button onClick={addPlayer} className="skg-btn px-3 py-1 rounded">
             Add
@@ -185,52 +219,77 @@ export default function SetupPage() {
         </ul>
       </section>
 
-      {/* Vibe + (optional) Tags */}
+      {/* Categories (single select) */}
       <section className="w-full max-w-2xl mb-8">
-        <div className={`grid ${tags.length > 0 ? "md:grid-cols-2" : "grid-cols-1"} gap-6`}>
-          {/* Vibe (was Categories) */}
-          <div>
-            <h3 className="font-semibold mb-2">Vibe</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {(!taxLoading && !taxError && categories.length === 0) && (
-                <p className="text-sm opacity-70">No vibes found.</p>
+        <h3 className="font-semibold mb-2">Game Playlists</h3>
+        {catsLoading && <p className="text-sm opacity-70">Loading…</p>}
+        {taxError && (
+          <p className="text-sm opacity-75 mt-1">
+            Could not load categories: {taxError}
+          </p>
+        )}
+        {!catsLoading && !taxError && cats.length === 0 && (
+          <p className="text-sm opacity-70">No categories found.</p>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {cats.map((c) => (
+            <label
+              key={c.databaseId}
+              className={`flex items-center gap-2 p-3 rounded-lg bg-zinc-900/60 hover:bg-zinc-800 cursor-pointer ${
+                categoryId === c.databaseId ? "ring-2 ring-blue-500" : ""
+              }`}
+            >
+              <input
+                type="radio"
+                name="category"
+                checked={categoryId === c.databaseId}
+                onChange={() => onChooseCategory(c.databaseId)}
+              />
+              <span>{c.name}</span>
+            </label>
+          ))}
+        </div>
+
+        {/* Tags (only after category chosen; only tags used in that category) */}
+        {categoryId && (
+          <div className="mt-6">
+            <div className="flex items-center gap-3">
+              <h3 className="font-semibold">Game Vibe</h3>
+              {tagsLoading && <span className="text-xs opacity-70">Loading…</span>}
+              {!tagsLoading && (
+                <span className="text-xs opacity-70">
+                  Mode: <strong>{(tagMode ?? "or").toUpperCase()}</strong>
+                </span>
               )}
-              {categories.map((c) => (
-                <label key={c.id} className="flex items-center gap-2">
+            </div>
+
+            {!tagsLoading && visibleTags.length === 0 && (
+              <p className="text-sm opacity-70 mt-2">
+                No tags found for this category.
+              </p>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+              {visibleTags.map((t) => (
+                <label
+                  key={t.databaseId}
+                  className="flex items-center gap-2 p-2 rounded-lg bg-zinc-900/60 hover:bg-zinc-800 cursor-pointer"
+                >
                   <input
                     type="checkbox"
-                    checked={chosenCatIds.includes(c.id)}
-                    onChange={() => toggle(chosenCatIds, c.id, setChosenCatIds)}
+                    checked={selectedTagIds.includes(t.databaseId)}
+                    onChange={() => toggleTag(t.databaseId)}
                   />
-                  <span>{c.name}</span>
+                  <span>{t.name}</span>
                 </label>
               ))}
             </div>
+
+            <p className="text-xs opacity-70 mt-2">
+              Party Games tags combine with <b>OR</b>; Parents and Kids combine with <b>AND</b>.
+            </p>
           </div>
-
-          {/* Tags — hidden entirely when none */}
-          {tags.length > 0 && (
-            <div>
-              <h3 className="font-semibold mb-2">Tags</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {tags.map((t) => (
-                  <label key={t.id} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={chosenTagIds.includes(t.id)}
-                      onChange={() => toggle(chosenTagIds, t.id, setChosenTagIds)}
-                    />
-                    <span>{t.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* If you want to surface errors, keep this tiny line; else you can delete it */}
-        {taxError && (
-          <p className="text-sm opacity-75 mt-2">Could not load filters: {taxError}</p>
         )}
       </section>
 
