@@ -30,7 +30,10 @@ function getGraphQLEndpoint() {
 /** ------------------------------------------------------------------------
  * Low-level GraphQL helper
  * --------------------------------------------------------------------- */
-async function graphQL<T = any>(query: string, variables: Record<string, any> = {}): Promise<T> {
+async function graphQL<T = any>(
+  query: string,
+  variables: Record<string, any> = {}
+): Promise<T> {
   const endpoint = getGraphQLEndpoint();
 
   const res = await fetch(endpoint, {
@@ -96,93 +99,9 @@ export async function fetchTaxOptions(): Promise<{ cats: TaxItem[]; tags: TaxIte
 }
 
 /** ------------------------------------------------------------------------
- * Optional convenience for the Session page:
- * Fetch posts using Category + Tags with tag mode AND/OR.
- *
- * If tagMode === "or": we can use tagIn + categoryIn
- * If tagMode === "and": we use taxQuery with multiple tag terms (AND)
+ * Fetch tags that actually occur on posts within a given Category (DATABASE_ID)
+ * Used to show only relevant tags once a playlist/category is selected
  * --------------------------------------------------------------------- */
-export type TagMode = "and" | "or";
-
-export async function fetchPostsByFilters(params: {
-  first: number;
-  categoryId?: number | null;
-  tagIds?: number[] | null;
-  tagMode?: TagMode; // "or" default; "and" for Parents-and-Kids case
-}) {
-  const { first, categoryId, tagIds = [], tagMode = "or" } = params;
-
-  // Build variables
-  const variables: Record<string, any> = { first };
-  let query: string;
-
-  if (tagMode === "and" && tagIds.length > 1) {
-    // Use taxQuery to require ALL selected tags
-    // Note: taxQuery supports relation + individual taxonomy clauses.
-    variables.taxQuery = {
-      relation: "AND",
-      queries: [
-        ...(categoryId
-          ? [
-              {
-                taxonomy: "CATEGORY",
-                terms: [categoryId],
-                operator: "IN",
-              },
-            ]
-          : []),
-        ...tagIds.map((tid) => ({
-          taxonomy: "TAG",
-          terms: [tid],
-          operator: "IN",
-        })),
-      ],
-    };
-
-    query = /* GraphQL */ `
-      query PostsByTaxQuery($first: Int!, $taxQuery: [TaxQuery]) {
-        posts(first: $first, where: { taxQuery: $taxQuery }) {
-          nodes {
-            id
-            databaseId
-            title
-            slug
-            uri
-            content(format: RENDERED)
-            excerpt(format: RENDERED)
-          }
-        }
-      }
-    `;
-  } else {
-    // Default OR behavior (or single tag): categoryIn + tagIn are fine
-    variables.cat = categoryId ? [categoryId] : null;
-    variables.tag = tagIds.length ? tagIds : null;
-
-    query = /* GraphQL */ `
-      query PostsByFilters($cat: [ID], $tag: [ID], $first: Int!) {
-        posts(first: $first, where: { categoryIn: $cat, tagIn: $tag }) {
-          nodes {
-            id
-            databaseId
-            title
-            slug
-            uri
-            content(format: RENDERED)
-            excerpt(format: RENDERED)
-          }
-        }
-      }
-    `;
-  }
-
-  const data = await graphQL<{ posts: { nodes: any[] } }>(query, variables);
-  return data.posts.nodes;
-}
-
-/// src/lib/api.ts
-
-// Fetch tags that actually occur on posts within a given Category (by DATABASE_ID)
 export async function fetchTagsForCategory(categoryDbId: number): Promise<TaxItem[]> {
   const query = /* GraphQL */ `
     query TagsForCategory($catId: ID!) {
@@ -210,6 +129,92 @@ export async function fetchTagsForCategory(categoryDbId: number): Promise<TaxIte
     }
   }
   return Array.from(map.values());
+}
+
+/** ------------------------------------------------------------------------
+ * Optional convenience for the Session page:
+ * Fetch posts using Category + Tags with tag mode AND/OR.
+ *
+ * If tagMode === "or": use tagIn + categoryIn
+ * If tagMode === "and": use taxQuery with multiple tag terms (AND)
+ * --------------------------------------------------------------------- */
+export type TagMode = "and" | "or";
+
+export async function fetchPostsByFilters(params: {
+  first: number;
+  categoryId?: number | null;
+  tagIds?: number[] | null;
+  tagMode?: TagMode; // "or" default; "and" for Parents-and-Kids case
+}) {
+  const { first, categoryId, tagMode = "or" } = params;
+
+  // Normalize tagIds to a real array so TS and runtime are safe
+  const tagList: number[] = Array.isArray(params.tagIds) ? params.tagIds : [];
+
+  const variables: Record<string, any> = { first };
+  let query: string;
+
+  if (tagMode === "and" && tagList.length > 1) {
+    // Use taxQuery to require ALL selected tags
+    variables.taxQuery = {
+      relation: "AND",
+      queries: [
+        ...(categoryId
+          ? [
+              {
+                taxonomy: "CATEGORY",
+                terms: [categoryId],
+                operator: "IN",
+              },
+            ]
+          : []),
+        ...tagList.map((tid) => ({
+          taxonomy: "TAG",
+          terms: [tid],
+          operator: "IN",
+        })),
+      ],
+    };
+
+    query = /* GraphQL */ `
+      query PostsByTaxQuery($first: Int!, $taxQuery: [TaxQuery]) {
+        posts(first: $first, where: { taxQuery: $taxQuery }) {
+          nodes {
+            id
+            databaseId
+            title
+            slug
+            uri
+            content(format: RENDERED)
+            excerpt(format: RENDERED)
+          }
+        }
+      }
+    `;
+  } else {
+    // Default OR behavior (or single tag): categoryIn + tagIn
+    variables.cat = categoryId ? [categoryId] : null;
+    variables.tag = tagList.length ? tagList : null;
+
+    query = /* GraphQL */ `
+      query PostsByFilters($cat: [ID], $tag: [ID], $first: Int!) {
+        posts(first: $first, where: { categoryIn: $cat, tagIn: $tag }) {
+          nodes {
+            id
+            databaseId
+            title
+            slug
+            uri
+            content(format: RENDERED)
+            excerpt(format: RENDERED)
+          }
+        }
+      }
+    `;
+  }
+
+  const data = await fetchGames(query, variables);
+  return data.posts.nodes;
 }
 
 /** ------------------------------------------------------------------------
