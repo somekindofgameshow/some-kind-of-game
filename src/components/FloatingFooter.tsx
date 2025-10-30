@@ -112,7 +112,7 @@ export default function FloatingFooter({
       {collapsed && (
         <div className="absolute left-1/2 -translate-x-1/2 -translate-y-2 bottom-0">
           <button
-            className="px-3 py-1 rounded-full text-sm bg-zinc-900/90 border border-white/10 hover:bg-zinc-800 shadow-lg"
+            className="skg-btn px-3 py-1 rounded-full text-sm shadow-lg"
             onClick={() => toggleCollapsed(false)}
             aria-label="Show scoreboard"
           >
