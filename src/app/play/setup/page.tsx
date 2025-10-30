@@ -8,6 +8,24 @@ import {
   type TaxItem,
 } from "@/lib/api";
 
+/** ------------------------------------------------------------------------
+ * Curated vibes per playlist (by category slug)
+ * Make sure slugs match your WordPress slugs exactly.
+ * --------------------------------------------------------------------- */
+const CURATED_VIBES: Record<string, string[]> = {
+  "parents-and-kids": ["ages-6-8", "low-effort"],
+  "party-games": ["chill", "playful", "wild"],
+  // "date-night": ["chill", "low-effort"],
+};
+
+/** ------------------------------------------------------------------------
+ * Tag match mode per playlist (by category slug)
+ * --------------------------------------------------------------------- */
+const TAG_MODE_BY_CATEGORY_SLUG: Record<string, "and" | "or"> = {
+  "party-games": "or",
+  "parents-and-kids": "and",
+};
+
 type SavedSetup = {
   numGames: number;
   players: string[];
@@ -16,12 +34,6 @@ type SavedSetup = {
 };
 
 const STORAGE_KEY = "skg-setup";
-
-// Map category slug -> tag mode
-const TAG_MODE_BY_CATEGORY_SLUG: Record<string, "and" | "or"> = {
-  "party-games": "or",
-  "parents-and-kids": "and",
-};
 
 export default function SetupPage() {
   const router = useRouter();
@@ -33,6 +45,7 @@ export default function SetupPage() {
 
   // taxonomy state
   const [cats, setCats] = useState<TaxItem[]>([]);
+  const [allTags, setAllTags] = useState<TaxItem[]>([]);
   const [visibleTags, setVisibleTags] = useState<TaxItem[]>([]);
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
@@ -67,20 +80,20 @@ export default function SetupPage() {
     } catch {}
   }, [numGames, players, categoryId, selectedTagIds]);
 
-  // fetch categories (and all tags, then we’ll filter by category on demand)
+  // fetch categories + all tags once
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         setCatsLoading(true);
         setTaxError(null);
-        const { cats } = await fetchTaxOptions();
+        const { cats, tags } = await fetchTaxOptions();
         if (cancelled) return;
-        // Exclude "Uncategorized"
-        const filtered = (cats || []).filter(
+        const filteredCats = (cats || []).filter(
           (c) => (c.slug || "").toLowerCase() !== "uncategorized"
         );
-        setCats(filtered);
+        setCats(filteredCats);
+        setAllTags(tags || []);
       } catch (e: any) {
         console.error(e);
         if (!cancelled) setTaxError(e?.message || String(e));
@@ -93,7 +106,7 @@ export default function SetupPage() {
     };
   }, []);
 
-  // whenever category changes, load ONLY the tags used by posts in that category
+  // when category changes, build the visibleTags list
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -104,12 +117,44 @@ export default function SetupPage() {
       try {
         setTagsLoading(true);
         setTaxError(null);
-        const tags = await fetchTagsForCategory(categoryId);
+
+        // Discover tags from posts in the selected category
+        const discovered = await fetchTagsForCategory(categoryId);
         if (cancelled) return;
-        setVisibleTags(tags);
-        // if our selectedTagIds include tags not in this category anymore, drop them
+
+        // Determine curated list (if any) from category slug
+        const cat = cats.find((c) => c.databaseId === categoryId);
+        const slug = (cat?.slug || "").toLowerCase();
+        const curatedSlugs = CURATED_VIBES[slug];
+
+        let next: TaxItem[] = discovered;
+
+        if (Array.isArray(curatedSlugs) && curatedSlugs.length > 0) {
+          // Map for quick lookup
+          const discoveredBySlug = new Map(
+            discovered.map((t) => [t.slug.toLowerCase(), t])
+          );
+          const allBySlug = new Map(
+            allTags.map((t) => [t.slug.toLowerCase(), t])
+          );
+
+          // Build curated list in the order specified, falling back to allTags
+          const curatedList: TaxItem[] = [];
+          for (const s of curatedSlugs) {
+            const key = s.toLowerCase();
+            const t = discoveredBySlug.get(key) || allBySlug.get(key);
+            if (t && !curatedList.find((x) => x.databaseId === t.databaseId)) {
+              curatedList.push(t);
+            }
+          }
+          next = curatedList;
+        }
+
+        setVisibleTags(next);
+
+        // Drop any selected tag that is no longer visible
         setSelectedTagIds((prev) =>
-          prev.filter((id) => tags.some((t) => t.databaseId === id))
+          prev.filter((id) => next.some((t) => t.databaseId === id))
         );
       } catch (e: any) {
         console.error(e);
@@ -121,9 +166,9 @@ export default function SetupPage() {
     return () => {
       cancelled = true;
     };
-  }, [categoryId]);
+  }, [categoryId, cats, allTags]);
 
-  // figure out tag mode
+  // figure out tag mode for the selected category
   const tagMode = useMemo<"and" | "or" | null>(() => {
     if (!categoryId) return null;
     const cat = cats.find((c) => c.databaseId === categoryId);
@@ -155,7 +200,7 @@ export default function SetupPage() {
   }
   function onChooseCategory(id: number) {
     setCategoryId(id);
-    setSelectedTagIds([]); // reset tags on category change
+    setSelectedTagIds([]); // reset vibes when playlist changes
   }
 
   function startGame() {
@@ -219,7 +264,7 @@ export default function SetupPage() {
         </ul>
       </section>
 
-      {/* Categories (single select) */}
+      {/* Game Playlists (single select) */}
       <section className="w-full max-w-2xl mb-8">
         <h3 className="font-semibold mb-2">Game Playlists</h3>
         {catsLoading && <p className="text-sm opacity-70">Loading…</p>}
@@ -251,7 +296,7 @@ export default function SetupPage() {
           ))}
         </div>
 
-        {/* Tags (only after category chosen; only tags used in that category) */}
+        {/* Game Vibe (only after a playlist is chosen) */}
         {categoryId && (
           <div className="mt-6">
             <div className="flex items-center gap-3">
@@ -266,7 +311,7 @@ export default function SetupPage() {
 
             {!tagsLoading && visibleTags.length === 0 && (
               <p className="text-sm opacity-70 mt-2">
-                No tags found for this category.
+                No tags found for this playlist.
               </p>
             )}
 
@@ -287,7 +332,7 @@ export default function SetupPage() {
             </div>
 
             <p className="text-xs opacity-70 mt-2">
-              Party Games tags combine with <b>OR</b>; Parents and Kids combine with <b>AND</b>.
+              Party Games vibes combine with <b>OR</b>; Parents and Kids combine with <b>AND</b>.
             </p>
           </div>
         )}
