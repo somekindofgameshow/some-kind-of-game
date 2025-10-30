@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import GameCard from "./GameCard";
+import FooterPortal from "./FooterPortal";
+import FloatingFooter from "./FloatingFooter";
 import ClientScoreBoard from "./ClientScoreBoard";
 
 // If you prefer to avoid hardcoding the domain, set NEXT_PUBLIC_WP_BASE_URL
@@ -83,11 +85,8 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
 
   return (
     <div className="w-full flex flex-col items-center gap-6">
-      {/* Scoreboard */}
-      <div className="w-full max-w-3xl">
-        <ClientScoreBoard players={players} sessionId={effectiveSessionId} />
-      </div>
-
+      
+      
       {/* Progress header */}
       <div className="w-full max-w-3xl">
         <div className="flex justify-between items-center mb-2">
@@ -115,6 +114,18 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
           <p className="opacity-75">No games loaded.</p>
         )}
       </div>
+
+
+      {/* Floating scoreboard footer */}
+<FooterPortal>
+  <FloatingFooter sessionKey={effectiveSessionId || "default"}>
+    <ClientScoreBoard
+      players={players}
+      sessionId={effectiveSessionId || "default"}
+    />
+  </FloatingFooter>
+</FooterPortal>
+
 
       {/* Controls */}
       <div className="mt-2 flex gap-3">

@@ -2,6 +2,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Link from "next/link";
+// at top
+import Image from "next/image";
+
 
 export const metadata: Metadata = {
   title: "Some Kind of Game",
@@ -34,6 +37,7 @@ export default function RootLayout({
             </div>
 
             {/* CENTER: Two-line headline */}
+            
             <div className="justify-self-center text-center leading-tight">
               <div className="text-xs md:text-sm opacity-80">You&apos;re playing</div>
               <div className="text-base md:text-lg font-semibold">Some Kind of Game</div>
