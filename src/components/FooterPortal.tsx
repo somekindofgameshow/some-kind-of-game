@@ -9,20 +9,18 @@ export default function FooterPortal({ children }: { children: React.ReactNode }
   useEffect(() => {
     const el = document.createElement("div");
     el.setAttribute("id", "skg-footer-portal");
-    el.style.position = "fixed";
-    el.style.left = "0";
-    el.style.right = "0";
-    el.style.bottom = "0";
-    el.style.zIndex = "40";
-    el.style.pointerEvents = "none"; // we’ll re-enable inside
     document.body.appendChild(el);
     elRef.current = el;
     setMounted(true);
-    return () => {
-      el.remove();
-    };
+    return () => { el.remove(); };
   }, []);
 
   if (!mounted || !elRef.current) return null;
-  return createPortal(children, elRef.current);
+  return createPortal(
+    // Fixed to the viewport bottom, high z-index, pass pointer events to children only
+    <div className="fixed inset-x-0 bottom-0 z-[100] pointer-events-none">
+      {children}
+    </div>,
+    elRef.current
+  );
 }
