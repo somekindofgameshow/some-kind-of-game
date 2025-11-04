@@ -122,15 +122,15 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
           className="px-4 py-2 rounded-xl font-semibold disabled:opacity-40"
           style={{ background: "#374151", color: "#fff" }}
         >
-          Previous
+          ◀️ Previous
         </button>
         {!atLast ? (
           <button onClick={next} className="skg-btn px-4 py-2 rounded-xl font-semibold">
-            Next Game
+            Next Game ▶️
           </button>
         ) : (
           <button onClick={resetProgress} className="skg-btn px-4 py-2 rounded-xl font-semibold">
-            Restart Session
+            Restart Session 🔄
           </button>
         )}
       </div>
