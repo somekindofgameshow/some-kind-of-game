@@ -15,6 +15,7 @@ import {
 const CURATED_VIBES: Record<string, string[]> = {
   "parents-and-kids": ["ages-6-8", "low-effort"],
   "party-games": ["chill", "playful", "wild"],
+  "a-party-of-points": ["points"],
   // "date-night": ["chill", "low-effort"],
 };
 
@@ -24,6 +25,7 @@ const CURATED_VIBES: Record<string, string[]> = {
 const TAG_MODE_BY_CATEGORY_SLUG: Record<string, "and" | "or"> = {
   "party-games": "or",
   "parents-and-kids": "and",
+  "a-party-of-points": "or",
 };
 
 type SavedSetup = {
