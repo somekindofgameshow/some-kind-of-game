@@ -84,21 +84,8 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
       : `${WP_BASE}/`; // fallback to home if no uri
 
   return (
-    <div className="w-full flex flex-col items-center gap-6">
+    <div className="w-full flex flex-col items-center gap-3">
       
-      
-      {/* Progress header */}
-      <div className="w-full max-w-3xl">
-        <div className="flex justify-between items-center mb-2">
-          <p className="text-sm opacity-80">
-            Game {Math.min(index + 1, games.length)} of {games.length}
-          </p>
-          <p className="text-sm opacity-80">{progressPct}%</p>
-        </div>
-        <div className="h-2 rounded bg-white/10 overflow-hidden">
-          <div className="h-full bg-white/70" style={{ width: `${progressPct}%` }} />
-        </div>
-      </div>
 
       {/* Current game card */}
       <div className="w-full max-w-xl">
@@ -128,7 +115,7 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
 
 
       {/* Controls */}
-      <div className="mt-2 flex gap-3">
+      <div className="mt-4 flex gap-3">
         <button
           onClick={prev}
           disabled={index === 0}

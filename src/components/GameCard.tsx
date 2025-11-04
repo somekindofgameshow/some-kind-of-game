@@ -30,8 +30,6 @@ type ExtractResult = {
 
 /**
  * Build a minimal HTML document for the iframe.
- * - Includes a base tag so relative assets (if any) resolve.
- * - Includes a small auto-resize script to post height to parent.
  */
 function buildSrcDoc(blockHtml: string, baseHref: string) {
   const cssReset = `
@@ -68,15 +66,7 @@ function buildSrcDoc(blockHtml: string, baseHref: string) {
 }
 
 /**
- * Parse the raw WordPress HTML and:
- *  - Replace known widget blocks with placeholder slots: <div data-skg-slot="n"></div>
- *  - Return a list of widgets, each providing an iframe srcdoc for that slot.
- *
- * Preferred markup in WP is a wrapper:
- *   <div data-skg-widget="random-object"> ... HTML + <style> + <script> ... </div>
- *
- * Fallback included for your current pattern:
- *   .random-object-generator  (+ #word-bank + nearby <style>/<script>)
+ * Replace widget blocks with slots and return iframe srcdocs.
  */
 function extractWidgetsFromHtml(rawHtml: string, baseHref: string): ExtractResult {
   const parser = new DOMParser();
@@ -84,12 +74,11 @@ function extractWidgetsFromHtml(rawHtml: string, baseHref: string): ExtractResul
   const widgets: ExtractResult["widgets"] = [];
   let slotIndex = 0;
 
-  // A) Preferred: any wrapper with data-skg-widget
   const widgetWrappers = Array.from(doc.querySelectorAll<HTMLElement>("[data-skg-widget]"));
 
   widgetWrappers.forEach((wrapper) => {
     const slot = `skg-slot-${slotIndex++}`;
-    const html = wrapper.outerHTML; // includes any <style>/<script> inside
+    const html = wrapper.outerHTML;
     const srcdoc = buildSrcDoc(html, baseHref);
 
     const placeholder = doc.createElement("div");
@@ -99,8 +88,6 @@ function extractWidgetsFromHtml(rawHtml: string, baseHref: string): ExtractResul
     widgets.push({ slot, srcdoc });
   });
 
-  // B) Fallback: your existing random-object block
-  // Look for main generator div, pull in sibling #word-bank, and the nearest <style>/<script>
   if (widgetWrappers.length === 0) {
     const gen = doc.querySelector<HTMLElement>(".random-object-generator");
     if (gen) {
@@ -110,11 +97,9 @@ function extractWidgetsFromHtml(rawHtml: string, baseHref: string): ExtractResul
       const bank = doc.querySelector<HTMLElement>("#word-bank");
       if (bank) frag.appendChild(bank.cloneNode(true));
 
-      // Attach first style & script following the generator (best-effort)
       let foundStyle: HTMLStyleElement | null = null;
       let foundScript: HTMLScriptElement | null = null;
 
-      // search siblings first
       let n: ChildNode | null = gen.nextSibling;
       let guard = 0;
       while (n && guard++ < 20 && (!foundStyle || !foundScript)) {
@@ -122,7 +107,6 @@ function extractWidgetsFromHtml(rawHtml: string, baseHref: string): ExtractResul
         if ((n as HTMLElement).tagName === "SCRIPT" && !foundScript) foundScript = n as HTMLScriptElement;
         n = n.nextSibling;
       }
-      // fallback to document-level search if not found
       if (!foundStyle) foundStyle = doc.querySelector("style");
       if (!foundScript) foundScript = doc.querySelector("script");
 
@@ -132,7 +116,6 @@ function extractWidgetsFromHtml(rawHtml: string, baseHref: string): ExtractResul
       const slot = `skg-slot-${slotIndex++}`;
       const srcdoc = buildSrcDoc(frag.innerHTML, baseHref);
 
-      // remove originals from document so they don't show twice
       gen.remove();
       if (bank?.isConnected) bank.remove();
       foundStyle?.remove();
@@ -140,9 +123,7 @@ function extractWidgetsFromHtml(rawHtml: string, baseHref: string): ExtractResul
 
       const placeholder = doc.createElement("div");
       placeholder.setAttribute("data-skg-slot", slot);
-      // insert placeholder where generator was
-      const body = doc.body;
-      body.appendChild(placeholder);
+      doc.body.appendChild(placeholder);
 
       widgets.push({ slot, srcdoc });
     }
@@ -165,7 +146,6 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
   const rawHtml = useMemo(() => content || excerpt || `<p>${title}</p>`, [content, excerpt, title]);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Build sanitized HTML (no scripts) *with* widget placeholders + the iframe srcdocs
   const [processed, setProcessed] = useState<ExtractResult | null>(null);
 
   useEffect(() => {
@@ -173,12 +153,9 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
     (async () => {
       const { default: DOMPurify } = await import("isomorphic-dompurify");
 
-      // IMPORTANT: We extract widgets from the raw HTML first,
-      // because we need to keep their <script> for the iframe.
       const baseHref = (process.env.NEXT_PUBLIC_WORDPRESS_BASE_URL as string) || "https://somekindofgame.com";
       const { safeHtmlWithSlots, widgets } = extractWidgetsFromHtml(rawHtml, baseHref);
 
-      // Now sanitize the HTML-with-slots (scripts should be gone)
       const cleaned = DOMPurify.sanitize(safeHtmlWithSlots, {
         ALLOWED_TAGS: [
           "p","br","strong","em","b","i","u","span","ul","ol","li","blockquote","hr","code","pre",
@@ -202,18 +179,14 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
     return () => { canceled = true; };
   }, [rawHtml, title]);
 
-  // Inject iframes into placeholders and auto-resize
   useEffect(() => {
     if (!processed || !containerRef.current) return;
 
     const host = containerRef.current;
 
-    // listener for resize messages
     function onMsg(e: MessageEvent) {
       const data = e.data as any;
       if (!data || !data.__skg_iframe) return;
-      // set the height of the last created iframe that sent a message
-      // (we’ll tag each iframe to be precise)
       const iframe = host.querySelector<HTMLIFrameElement>('iframe[data-skg-iframe="pending"]');
       if (iframe) {
         iframe.style.height = Math.max(120, Number(data.h || 0)) + "px";
@@ -222,13 +195,11 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
     }
     window.addEventListener("message", onMsg);
 
-    // mount iframes
     processed.widgets.forEach(({ slot, srcdoc }) => {
       const slotEl = host.querySelector<HTMLElement>(`[data-skg-slot="${slot}"]`);
       if (!slotEl) return;
-      // create a sandboxed iframe
       const iframe = document.createElement("iframe");
-      iframe.setAttribute("sandbox", "allow-scripts"); // no same-origin, no top nav, safe
+      iframe.setAttribute("sandbox", "allow-scripts");
       iframe.setAttribute("referrerpolicy", "no-referrer");
       iframe.setAttribute("data-skg-iframe", "pending");
       iframe.style.width = "100%";
@@ -257,10 +228,7 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
       aria-label={title}
       role="group"
     >
-      <div className="flex items-center gap-2 text-xs opacity-70">
-        <div className="h-3 w-3 rounded-full bg-white/70" />
-        {slug && <span className="truncate">{slug}</span>}
-      </div>
+      {/* (slug row removed) */}
 
       <div
         ref={containerRef}
@@ -279,7 +247,7 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
         }}
       />
 
-      <div className="mt-2 text-xs opacity-70 text-left">{title}</div>
+      {/* (bottom title removed) */}
     </article>
   );
 }
