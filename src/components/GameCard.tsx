@@ -33,10 +33,32 @@ type ExtractResult = {
  */
 function buildSrcDoc(blockHtml: string, baseHref: string) {
   const cssReset = `
-    html,body{margin:0;padding:0}
-    body{font:inherit;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;background:#fff;color:#000;padding:8px}
-    button{font:inherit;cursor:pointer}
-  `;
+  html,body{margin:0;padding:0}
+  body{
+    font:inherit;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+    background:#0a0f24;   /* ← dark blue */
+    color:#ffffff;         /* ← white text */
+    padding:8px;
+  }
+  button{
+    font:inherit;
+    cursor:pointer;
+    background:#0059ff;    /* match your app buttons */
+    color:#fff;
+    border:none;
+    border-radius:6px;
+    padding:4px 10px;
+  }
+  input{
+    background:#111827;
+    color:#fff;
+    border:1px solid #374151;
+    border-radius:6px;
+    padding:3px 6px;
+  }
+`;
+
   const autoResize = `
     <script>
       (function(){
@@ -221,7 +243,7 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
       className="
         rounded-3xl shadow-2xl border border-white/10
         bg-black text-white
-        p-4 sm:p-5 md:p-6           /* tighter overall padding */
+        p-2 sm:p-5 md:p-6           /* tighter overall padding */
         max-w-xl mx-auto
         flex flex-col gap-3          /* tighter internal spacing */
       "
@@ -230,7 +252,7 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
     >
       {/* Compact slug row */}
       {slug && (
-        <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide opacity-70 -mt-1">
+        <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide opacity-70">
           <div className="h-2 w-2 rounded-full bg-white/60" />
           <span className="truncate">{slug}</span>
         </div>
