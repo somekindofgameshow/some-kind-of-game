@@ -221,21 +221,27 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
       className="
         rounded-3xl shadow-2xl border border-white/10
         bg-black text-white
-        p-6 sm:p-8 md:p-10
+        p-4 sm:p-5 md:p-6           /* tighter overall padding */
         max-w-xl mx-auto
-        flex flex-col gap-4
+        flex flex-col gap-3          /* tighter internal spacing */
       "
       aria-label={title}
       role="group"
     >
-      {/* (slug row removed) */}
+      {/* Compact slug row */}
+      {slug && (
+        <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide opacity-70 -mt-1">
+          <div className="h-2 w-2 rounded-full bg-white/60" />
+          <span className="truncate">{slug}</span>
+        </div>
+      )}
 
       <div
         ref={containerRef}
         className="
           text-left leading-relaxed text-pretty
           text-[clamp(16px,2.6vw,20px)]
-          [&_p]:mb-4
+          [&_p]:mb-3                           /* slightly smaller paragraph spacing */
           [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6
           [&_blockquote]:italic [&_blockquote]:opacity-90 [&_blockquote]:border-l [&_blockquote]:pl-4
           [&_a]:underline
@@ -246,8 +252,7 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
           __html: processed?.safeHtmlWithSlots ?? toPlainParagraphs(rawHtml, title),
         }}
       />
-
-      {/* (bottom title removed) */}
+      {/* No bottom title */}
     </article>
   );
 }

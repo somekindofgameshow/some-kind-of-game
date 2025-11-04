@@ -84,7 +84,7 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
       : `${WP_BASE}/`; // fallback to home if no uri
 
   return (
-    <div className="w-full flex flex-col items-center gap-3">
+    <div className="w-full flex flex-col items-center gap-1">
       
 
       {/* Current game card */}
