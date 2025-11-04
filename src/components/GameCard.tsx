@@ -239,42 +239,41 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
   }, [processed]);
 
   return (
-    <article
-      className="
-        rounded-3xl shadow-2xl border border-white/10
-        bg-black text-white
-        p-2 sm:p-5 md:p-6           /* tighter overall padding */
-        max-w-xl mx-auto
-        flex flex-col gap-3          /* tighter internal spacing */
-      "
-      aria-label={title}
-      role="group"
-    >
-      {/* Compact slug row */}
-      {slug && (
-        <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide opacity-70">
-          <div className="h-2 w-2 rounded-full bg-white/60" />
-          <span className="truncate">{slug}</span>
-        </div>
-      )}
+  <article
+    className="
+      rounded-3xl shadow-2xl border border-white/10
+      bg-black text-white
+      p-6 sm:p-8 md:p-10
+      max-w-xl mx-auto
+      flex flex-col gap-4
+    "
+    aria-label={title}
+    role="group"
+  >
 
-      <div
-        ref={containerRef}
-        className="
-          text-left leading-relaxed text-pretty
-          text-[clamp(16px,2.6vw,20px)]
-          [&_p]:mb-3                           /* slightly smaller paragraph spacing */
-          [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6
-          [&_blockquote]:italic [&_blockquote]:opacity-90 [&_blockquote]:border-l [&_blockquote]:pl-4
-          [&_a]:underline
-          [&_img]:rounded-xl [&_img]:mx-auto [&_img]:my-4 [&_img]:max-h-72 [&_img]:object-contain
-        "
-        suppressHydrationWarning
-        dangerouslySetInnerHTML={{
-          __html: processed?.safeHtmlWithSlots ?? toPlainParagraphs(rawHtml, title),
-        }}
-      />
-      {/* No bottom title */}
-    </article>
-  );
+    <div
+      ref={containerRef}
+      className="
+        text-left leading-relaxed text-pretty
+        text-[clamp(16px,2.6vw,20px)]
+        [&_p]:mb-4
+        [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6
+        [&_blockquote]:italic [&_blockquote]:opacity-90 [&_blockquote]:border-l [&_blockquote]:pl-4
+        [&_a]:underline
+        [&_img]:rounded-xl [&_img]:mx-auto [&_img]:my-4 [&_img]:max-h-72 [&_img]:object-contain
+      "
+      suppressHydrationWarning
+      dangerouslySetInnerHTML={{
+        __html: processed?.safeHtmlWithSlots ?? toPlainParagraphs(rawHtml, title),
+      }}
+    />
+
+    {slug && (
+      <div className="text-xs opacity-60 text-center font-mono tracking-wide mt-2">
+        {slug}
+      </div>
+    )}
+  </article>
+);
+
 }
