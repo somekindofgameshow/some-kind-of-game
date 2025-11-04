@@ -255,8 +255,8 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
       ref={containerRef}
       className="
         text-left leading-relaxed text-pretty
-        text-[clamp(20px,2.6vw,20px)]
-        [&_p]:mb-4
+        text-[clamp(18px,2.6vw,20px)]
+        [&_p]:mb-5
         [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6
         [&_blockquote]:italic [&_blockquote]:opacity-90 [&_blockquote]:border-l [&_blockquote]:pl-4
         [&_a]:underline
