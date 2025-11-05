@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import GameCard from "./GameCard";
 import FooterPortal from "./FooterPortal";
 import FloatingFooter from "./FloatingFooter";
@@ -11,7 +11,6 @@ import ClientScoreBoard from "./ClientScoreBoard";
 const WP_BASE =
   process.env.NEXT_PUBLIC_WP_BASE_URL || "https://somekindofgame.com";
 
-// Types kept inline to avoid any conflicts with shared types elsewhere.
 type GameItem = {
   id: string;
   databaseId: number;
@@ -28,9 +27,15 @@ type Props = {
   initialSessionId?: string;
 };
 
-export default function SessionClient({ games, players, initialSessionId }: Props) {
+export default function SessionClient({
+  games,
+  players,
+  initialSessionId,
+}: Props) {
   // Recover sessionId if not in URL (works with refreshes)
-  const [sessionId, setSessionId] = useState<string | undefined>(initialSessionId);
+  const [sessionId, setSessionId] = useState<string | undefined>(
+    initialSessionId
+  );
 
   useEffect(() => {
     if (!initialSessionId) {
@@ -69,7 +74,6 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
   }, [index, PROGRESS_KEY]);
 
   const atLast = index >= games.length - 1;
-  const progressPct = games.length ? Math.round(((index + 1) / games.length) * 100) : 0;
 
   const next = () => setIndex((i) => Math.min(i + 1, games.length - 1));
   const prev = () => setIndex((i) => Math.max(i - 1, 0));
@@ -78,14 +82,39 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
   const current = games[index];
 
   // Build blog URL for the current game
-  const blogUrl =
-    current?.uri
-      ? `${WP_BASE}${current.uri}`
-      : `${WP_BASE}/`; // fallback to home if no uri
+  const blogUrl = current?.uri ? `${WP_BASE}${current.uri}` : `${WP_BASE}/`;
+
+  // --- Scroll-to-top on card change (no animations, iframe-safe) -----------
+  const cardAnchorRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!cardAnchorRef.current) return;
+
+    // Adjust this to match your sticky header height
+    const HEADER_OFFSET = 96; // px; tweak if needed
+
+    const prefersReducedMotion = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    // Compute the absolute Y we want to land at
+    const rect = cardAnchorRef.current.getBoundingClientRect();
+    const targetY = window.scrollY + rect.top - HEADER_OFFSET;
+
+    // If we're already within ~8px, don't scroll
+    if (Math.abs(window.scrollY - targetY) < 8) return;
+
+    // Smooth scroll unless user prefers reduced motion
+    window.scrollTo({
+      top: Math.max(0, targetY),
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+    });
+  }, [index]);
 
   return (
     <div className="w-full flex flex-col items-center gap-1">
-      
+      {/* Anchor sits immediately above the card, used for reliable scroll target */}
+      <div ref={cardAnchorRef} />
 
       {/* Current game card */}
       <div className="w-full max-w-xl">
@@ -95,24 +124,21 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
             slug={current.slug}
             content={current.content}
             excerpt={current.excerpt}
-            //uri={current.uri}
           />
         ) : (
           <p className="opacity-75">No games loaded.</p>
         )}
       </div>
 
-
       {/* Floating scoreboard footer */}
-<FooterPortal>
-  <FloatingFooter sessionKey={effectiveSessionId || "default"}>
-    <ClientScoreBoard
-      players={players}
-      sessionId={effectiveSessionId || "default"}
-    />
-  </FloatingFooter>
-</FooterPortal>
-
+      <FooterPortal>
+        <FloatingFooter sessionKey={effectiveSessionId || "default"}>
+          <ClientScoreBoard
+            players={players}
+            sessionId={effectiveSessionId || "default"}
+          />
+        </FloatingFooter>
+      </FooterPortal>
 
       {/* Controls */}
       <div className="mt-4 flex gap-3">
@@ -125,11 +151,17 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
           ◀️ Previous
         </button>
         {!atLast ? (
-          <button onClick={next} className="skg-btn px-4 py-2 rounded-xl font-semibold">
+          <button
+            onClick={next}
+            className="skg-btn px-4 py-2 rounded-xl font-semibold"
+          >
             Next Game ▶️
           </button>
         ) : (
-          <button onClick={resetProgress} className="skg-btn px-4 py-2 rounded-xl font-semibold">
+          <button
+            onClick={resetProgress}
+            className="skg-btn px-4 py-2 rounded-xl font-semibold"
+          >
             Restart Session 🔄
           </button>
         )}
@@ -137,19 +169,20 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
 
       {atLast && (
         <p className="mt-1 text-sm opacity-80">
-          🎉 You reached the end. You can press <b>Restart Session</b> or use the scoreboard’s{" "}
-          <b>End Game</b> to announce the winner.
+          🎉 You reached the end. You can press <b>Restart Session</b> or use
+          the scoreboard’s <b>End Game</b> to announce the winner.
         </p>
       )}
 
       {/* Feedback link (replaces in-app comments) */}
+      
       {/*
       {current && (
         <div className="w-full max-w-3xl mt-2 rounded-2xl skg-surface skg-border p-4">
           <h3 className="font-semibold mb-2">Feedback</h3>
           <p className="opacity-90">
-            If you have any feedback on this game, please visit this blog post to leave a
-            comment:
+            If you have any feedback on this game, please visit this blog post
+            to leave a comment:
           </p>
           <a
             href={blogUrl}
@@ -161,7 +194,7 @@ export default function SessionClient({ games, players, initialSessionId }: Prop
           </a>
         </div>
       )}
-        */}
+      */}
     </div>
   );
 }
