@@ -90,13 +90,12 @@ export default function SessionClient({
 
   useEffect(() => {
     if (cardTopRef.current) {
-      // Use scroll margin to account for sticky header
       cardTopRef.current.scrollIntoView({
         behavior: "smooth",
         block: "start",
       });
     }
-    // brief highlight ring (no opacity changes)
+    // brief highlight ring (no opacity changes → safe for iframes)
     setFlash(true);
     const t = setTimeout(() => setFlash(false), 350);
     return () => clearTimeout(t);
@@ -112,7 +111,7 @@ export default function SessionClient({
       >
         {current ? (
           <GameCard
-            key={current.databaseId || current.id}  // ensure clean remount per card
+            key={current.databaseId || current.id} // ensure clean remount per card
             title={current.title}
             slug={current.slug}
             content={current.content}
