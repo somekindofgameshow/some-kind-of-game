@@ -38,7 +38,7 @@ type PlaylistInfo = {
 const PLAYLIST_INFO: Record<string, PlaylistInfo> = {
   "parents-and-kids": {
     what:
-      "Light, low-prep activities designed so kids can participate with parents. Rules are simple and the pace is gentle.",
+      "A collection of activities and conversations for when you're tired but still want to play with your kids.",
     how: [
       "Pick 1–2 players to read the card and guide the group.",
       "Keep rounds short. Adjust for younger ages as needed.",
@@ -47,7 +47,7 @@ const PLAYLIST_INFO: Record<string, PlaylistInfo> = {
   },
   "party-games": {
     what:
-      "High-energy, social games best with 3+ players. Expect movement, improv, and laughs.",
+      "A wide variety of party games to instantly power up your party.",
     how: [
       "Rotate a ‘judge’ or leader each round.",
       "Use the vibe tags (Chill/Playful/Wild) to match your group’s mood.",
@@ -56,13 +56,13 @@ const PLAYLIST_INFO: Record<string, PlaylistInfo> = {
   },
   "a-party-of-points": {
     what:
-      "A collection of creative and chaotic challenges to earn points.",
+      "A collection of creative and chaotic games to play while sitting around. Most points wins.",
     how: [
-      "1) A player reads the task on the phone but don't read it out loud.",
-      "2) Never explain the task, even after the task is complete, unless the tasks permits it.",
-      "3) A watcher (the previous player) will also read the task but they cannot participate in the task aside from assuring it proceeds correctly.",
-      "4) Distribute points based on what the task says.",
-      "5) Pass the phone to the next player and repeat.",
+      "A player reads the task on the phone but don't read it out loud.",
+      "Never explain the task, even after the task is complete, unless the tasks permits it.",
+      "A watcher (the previous player) will also read the task but they cannot participate in the task aside from assuring it proceeds correctly.",
+      "Distribute points based on what the task says.",
+      "Pass the phone to the next player and repeat.",
     ],
   },
 };
@@ -330,25 +330,6 @@ const selectedInfo: PlaylistInfo | undefined =
           <p className="text-sm opacity-70">No categories found.</p>
         )}
 
-        {/* Playlist description (appears only when a playlist is selected) */}
-{selectedInfo && (
-  <div className="mt-4 rounded-xl bg-zinc-900/60 border border-white/10 p-4">
-    <div className="text-sm opacity-80 mb-2">
-      <span className="font-semibold">What this is:</span>{" "}
-      <span className="opacity-90">{selectedInfo.what}</span>
-    </div>
-    <div className="text-sm">
-      <div className="font-semibold mb-1">How to play</div>
-      <ul className="list-disc pl-5 opacity-90 space-y-1">
-        {selectedInfo.how.map((line, i) => (
-          <li key={i}>{line}</li>
-        ))}
-      </ul>
-    </div>
-  </div>
-)}
-
-
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {cats.map((c) => (
             <label
@@ -367,6 +348,25 @@ const selectedInfo: PlaylistInfo | undefined =
             </label>
           ))}
         </div>
+
+        
+        {/* Playlist description (appears only when a playlist is selected) */}
+{selectedInfo && (
+  <div className="mt-4 rounded-xl bg-zinc-900/60 border border-white/10 p-4">
+    <div className="text-sm opacity-80 mb-2">
+      <span className="font-semibold">✅ </span>{" "}
+      <span className="opacity-90">{selectedInfo.what}</span>
+    </div>
+    <div className="text-sm">
+      <div className="font-semibold mb-1">🎲 HOW TO PLAY</div>
+      <ul className="list-disc pl-5 opacity-90 space-y-1">
+        {selectedInfo.how.map((line, i) => (
+          <li key={i}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  </div>
+)}
 
         {/* Game Vibe (only after a playlist is chosen) */}
         {categoryId && (
