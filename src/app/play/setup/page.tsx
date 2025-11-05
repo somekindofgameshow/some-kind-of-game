@@ -56,9 +56,9 @@ const PLAYLIST_INFO: Record<string, PlaylistInfo> = {
   },
   "a-party-of-points": {
     what:
-      "A collection of creative and chaotic games to play while sitting around. Most points wins.",
+      "A collection of little challenges to play while sitting around. Most points wins.",
     how: [
-      "A player reads the task on the phone but don't read it out loud.",
+      "A player reads the task on the phone but doesn't read it out loud.",
       "Never explain the task, even after the task is complete, unless the tasks permits it.",
       "A watcher (the previous player) will also read the task but they cannot participate in the task aside from assuring it proceeds correctly.",
       "Distribute points based on what the task says.",
@@ -354,7 +354,7 @@ const selectedInfo: PlaylistInfo | undefined =
 {selectedInfo && (
   <div className="mt-4 rounded-xl bg-zinc-900/60 border border-white/10 p-4">
     <div className="text-sm opacity-80 mb-2">
-      <span className="font-semibold">✅ </span>{" "}
+      <span className="font-semibold">💬 </span>{" "}
       <span className="opacity-90">{selectedInfo.what}</span>
     </div>
     <div className="text-sm">
@@ -368,7 +368,10 @@ const selectedInfo: PlaylistInfo | undefined =
   </div>
 )}
 
+
+        
         {/* Game Vibe (only after a playlist is chosen) */}
+        {/*}
         {categoryId && (
           <div className="mt-6">
             <div className="flex items-center gap-3">
@@ -408,6 +411,8 @@ const selectedInfo: PlaylistInfo | undefined =
             </p>
           </div>
         )}
+        */}
+
       </section>
 
       <button
