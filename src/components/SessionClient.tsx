@@ -117,7 +117,7 @@ export default function SessionClient({
       <div ref={cardAnchorRef} />
 
       {/* Current game card */}
-      <div className="w-full max-w-xl">
+      <div className="w-full max-w-xl pb-32">
         {current ? (
           <GameCard
             title={current.title}
