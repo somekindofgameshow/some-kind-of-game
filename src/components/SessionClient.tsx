@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import GameCard from "./GameCard";
 import FooterPortal from "./FooterPortal";
 import FloatingFooter from "./FloatingFooter";
@@ -11,6 +11,7 @@ import ClientScoreBoard from "./ClientScoreBoard";
 const WP_BASE =
   process.env.NEXT_PUBLIC_WP_BASE_URL || "https://somekindofgame.com";
 
+// Types kept inline to avoid any conflicts with shared types elsewhere.
 type GameItem = {
   id: string;
   databaseId: number;
@@ -18,7 +19,7 @@ type GameItem = {
   slug: string;
   content?: string;
   excerpt?: string;
-  uri?: string;
+  uri?: string; // e.g. /family-game-night/sweet-nothings/
 };
 
 type Props = {
@@ -27,15 +28,9 @@ type Props = {
   initialSessionId?: string;
 };
 
-export default function SessionClient({
-  games,
-  players,
-  initialSessionId,
-}: Props) {
+export default function SessionClient({ games, players, initialSessionId }: Props) {
   // Recover sessionId if not in URL (works with refreshes)
-  const [sessionId, setSessionId] = useState<string | undefined>(
-    initialSessionId
-  );
+  const [sessionId, setSessionId] = useState<string | undefined>(initialSessionId);
 
   useEffect(() => {
     if (!initialSessionId) {
@@ -74,6 +69,7 @@ export default function SessionClient({
   }, [index, PROGRESS_KEY]);
 
   const atLast = index >= games.length - 1;
+  const progressPct = games.length ? Math.round(((index + 1) / games.length) * 100) : 0;
 
   const next = () => setIndex((i) => Math.min(i + 1, games.length - 1));
   const prev = () => setIndex((i) => Math.max(i - 1, 0));
@@ -82,55 +78,41 @@ export default function SessionClient({
   const current = games[index];
 
   // Build blog URL for the current game
-  const blogUrl = current?.uri ? `${WP_BASE}${current.uri}` : `${WP_BASE}/`;
-
-  // --- Scroll-to-top + safe visual cue on card change ----------------------
-  const cardTopRef = useRef<HTMLDivElement | null>(null);
-  const [flash, setFlash] = useState(false);
-
-  useEffect(() => {
-    if (cardTopRef.current) {
-      cardTopRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }
-    // brief highlight ring (no opacity changes → safe for iframes)
-    setFlash(true);
-    const t = setTimeout(() => setFlash(false), 350);
-    return () => clearTimeout(t);
-  }, [index]);
+  const blogUrl =
+    current?.uri
+      ? `${WP_BASE}${current.uri}`
+      : `${WP_BASE}/`; // fallback to home if no uri
 
   return (
     <div className="w-full flex flex-col items-center gap-1">
+      
+
       {/* Current game card */}
-      <div
-        ref={cardTopRef}
-        className={`w-full max-w-xl scroll-mt-28 md:scroll-mt-32 transition
-          ${flash ? "ring-2 ring-sky-500/60 rounded-3xl" : ""}`}
-      >
+      <div className="w-full max-w-xl">
         {current ? (
           <GameCard
-            key={current.databaseId || current.id} // ensure clean remount per card
             title={current.title}
             slug={current.slug}
             content={current.content}
             excerpt={current.excerpt}
+            //uri={current.uri}
           />
         ) : (
           <p className="opacity-75">No games loaded.</p>
         )}
       </div>
 
+
       {/* Floating scoreboard footer */}
-      <FooterPortal>
-        <FloatingFooter sessionKey={effectiveSessionId || "default"}>
-          <ClientScoreBoard
-            players={players}
-            sessionId={effectiveSessionId || "default"}
-          />
-        </FloatingFooter>
-      </FooterPortal>
+<FooterPortal>
+  <FloatingFooter sessionKey={effectiveSessionId || "default"}>
+    <ClientScoreBoard
+      players={players}
+      sessionId={effectiveSessionId || "default"}
+    />
+  </FloatingFooter>
+</FooterPortal>
+
 
       {/* Controls */}
       <div className="mt-4 flex gap-3">
@@ -143,17 +125,11 @@ export default function SessionClient({
           ◀️ Previous
         </button>
         {!atLast ? (
-          <button
-            onClick={next}
-            className="skg-btn px-4 py-2 rounded-xl font-semibold"
-          >
+          <button onClick={next} className="skg-btn px-4 py-2 rounded-xl font-semibold">
             Next Game ▶️
           </button>
         ) : (
-          <button
-            onClick={resetProgress}
-            className="skg-btn px-4 py-2 rounded-xl font-semibold"
-          >
+          <button onClick={resetProgress} className="skg-btn px-4 py-2 rounded-xl font-semibold">
             Restart Session 🔄
           </button>
         )}
@@ -161,18 +137,19 @@ export default function SessionClient({
 
       {atLast && (
         <p className="mt-1 text-sm opacity-80">
-          🎉 You reached the end. You can press <b>Restart Session</b> or use
-          the scoreboard’s <b>End Game</b> to announce the winner.
+          🎉 You reached the end. You can press <b>Restart Session</b> or use the scoreboard’s{" "}
+          <b>End Game</b> to announce the winner.
         </p>
       )}
 
       {/* Feedback link (replaces in-app comments) */}
+      {/*
       {current && (
         <div className="w-full max-w-3xl mt-2 rounded-2xl skg-surface skg-border p-4">
           <h3 className="font-semibold mb-2">Feedback</h3>
           <p className="opacity-90">
-            If you have any feedback on this game, please visit this blog post
-            to leave a comment:
+            If you have any feedback on this game, please visit this blog post to leave a
+            comment:
           </p>
           <a
             href={blogUrl}
@@ -184,6 +161,7 @@ export default function SessionClient({
           </a>
         </div>
       )}
+        */}
     </div>
   );
 }

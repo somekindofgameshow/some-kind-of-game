@@ -30,44 +30,44 @@ type ExtractResult = {
 
 /**
  * Build a minimal HTML document for the iframe.
- * - Dark theme background
- * - Auto-resize posts height on load, mutation & resize (with retries)
  */
 function buildSrcDoc(blockHtml: string, baseHref: string) {
   const cssReset = `
-    html,body{margin:0;padding:0}
-    body{
-      font:inherit;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
-      background:#0a0f24;   /* dark blue to match app */
-      color:#ffffff;
-      padding:8px;
-    }
-    button{
-      font:inherit; cursor:pointer;
-      background:#3b82f6; color:#fff; border:none; border-radius:6px; padding:4px 10px;
-    }
-    input{
-      background:#111827; color:#fff; border:1px solid #374151; border-radius:6px; padding:3px 6px;
-    }
-  `;
+  html,body{margin:0;padding:0}
+  body{
+    font:inherit;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+    background:#0a0f24;   /* ← dark blue */
+    color:#ffffff;         /* ← white text */
+    padding:8px;
+  }
+  button{
+    font:inherit;
+    cursor:pointer;
+    background:#0059ff;    /* match your app buttons */
+    color:#fff;
+    border:none;
+    border-radius:6px;
+    padding:4px 10px;
+  }
+  input{
+    background:#111827;
+    color:#fff;
+    border:1px solid #374151;
+    border-radius:6px;
+    padding:3px 6px;
+  }
+`;
+
   const autoResize = `
     <script>
       (function(){
         function postH(){
-          var h = Math.max(
-            0,
-            document.documentElement.scrollHeight,
-            document.body ? document.body.scrollHeight : 0
-          );
+          var h = document.documentElement.scrollHeight || document.body.scrollHeight || 0;
           parent.postMessage({__skg_iframe:true,h:h}, "*");
         }
-        window.addEventListener("load", function(){
-          postH();
-          setTimeout(postH, 50);
-          setTimeout(postH, 250);
-        });
-        new MutationObserver(postH).observe(document.documentElement, {subtree:true,childList:true,attributes:true,characterData:true});
+        window.addEventListener("load", postH);
+        new MutationObserver(postH).observe(document.documentElement,{subtree:true,childList:true,attributes:true,characterData:true});
         window.addEventListener("resize", postH);
       })();
     </script>
@@ -110,7 +110,46 @@ function extractWidgetsFromHtml(rawHtml: string, baseHref: string): ExtractResul
     widgets.push({ slot, srcdoc });
   });
 
-  // Legacy fallback example (if needed): omitted to keep things lean
+  if (widgetWrappers.length === 0) {
+    const gen = doc.querySelector<HTMLElement>(".random-object-generator");
+    if (gen) {
+      const frag = doc.createElement("div");
+      frag.appendChild(gen.cloneNode(true));
+
+      const bank = doc.querySelector<HTMLElement>("#word-bank");
+      if (bank) frag.appendChild(bank.cloneNode(true));
+
+      let foundStyle: HTMLStyleElement | null = null;
+      let foundScript: HTMLScriptElement | null = null;
+
+      let n: ChildNode | null = gen.nextSibling;
+      let guard = 0;
+      while (n && guard++ < 20 && (!foundStyle || !foundScript)) {
+        if ((n as HTMLElement).tagName === "STYLE" && !foundStyle) foundStyle = n as HTMLStyleElement;
+        if ((n as HTMLElement).tagName === "SCRIPT" && !foundScript) foundScript = n as HTMLScriptElement;
+        n = n.nextSibling;
+      }
+      if (!foundStyle) foundStyle = doc.querySelector("style");
+      if (!foundScript) foundScript = doc.querySelector("script");
+
+      if (foundStyle) frag.appendChild(foundStyle.cloneNode(true));
+      if (foundScript) frag.appendChild(foundScript.cloneNode(true));
+
+      const slot = `skg-slot-${slotIndex++}`;
+      const srcdoc = buildSrcDoc(frag.innerHTML, baseHref);
+
+      gen.remove();
+      if (bank?.isConnected) bank.remove();
+      foundStyle?.remove();
+      foundScript?.remove();
+
+      const placeholder = doc.createElement("div");
+      placeholder.setAttribute("data-skg-slot", slot);
+      doc.body.appendChild(placeholder);
+
+      widgets.push({ slot, srcdoc });
+    }
+  }
 
   const safeHtmlWithSlots = doc.body.innerHTML;
   return { safeHtmlWithSlots, widgets };
@@ -143,7 +182,7 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
         ALLOWED_TAGS: [
           "p","br","strong","em","b","i","u","span","ul","ol","li","blockquote","hr","code","pre",
           "a","img","div","section","article","header","footer","figure","figcaption",
-          "h1","h2","h3","h4","h5","h6","table","thead","tbody","tr","td","th","style"
+          "h1","h2","h3","h4","h5","h6","table","thead","tbody","tr","td","th"
         ],
         ALLOWED_ATTR: [
           "href","title","target","rel","src","alt","width","height","loading",
@@ -162,7 +201,6 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
     return () => { canceled = true; };
   }, [rawHtml, title]);
 
-  // Inject iframes into placeholders and auto-resize (robust)
   useEffect(() => {
     if (!processed || !containerRef.current) return;
 
@@ -171,47 +209,26 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
     function onMsg(e: MessageEvent) {
       const data = e.data as any;
       if (!data || !data.__skg_iframe) return;
-
-      // Find the iframe that sent this message and size that one
-      const iframes = Array.from(host.querySelectorAll<HTMLIFrameElement>("iframe[data-skg-iframe]"));
-      for (const f of iframes) {
-        if (f.contentWindow === e.source) {
-          const newH = Math.max(120, Number(data.h || 0));
-          if (f.style.height !== `${newH}px`) f.style.height = `${newH}px`;
-          if (f.getAttribute("data-skg-iframe") !== "ready") {
-            f.setAttribute("data-skg-iframe", "ready");
-          }
-          break;
-        }
+      const iframe = host.querySelector<HTMLIFrameElement>('iframe[data-skg-iframe="pending"]');
+      if (iframe) {
+        iframe.style.height = Math.max(120, Number(data.h || 0)) + "px";
+        iframe.setAttribute("data-skg-iframe", "ready");
       }
     }
     window.addEventListener("message", onMsg);
 
-    // mount iframes
     processed.widgets.forEach(({ slot, srcdoc }) => {
       const slotEl = host.querySelector<HTMLElement>(`[data-skg-slot="${slot}"]`);
       if (!slotEl) return;
       const iframe = document.createElement("iframe");
-      iframe.setAttribute("sandbox", "allow-scripts"); // safe: no same-origin, no top nav
+      iframe.setAttribute("sandbox", "allow-scripts");
       iframe.setAttribute("referrerpolicy", "no-referrer");
       iframe.setAttribute("data-skg-iframe", "pending");
       iframe.style.width = "100%";
       iframe.style.border = "0";
       iframe.style.display = "block";
-      iframe.style.background = "#0a0f24";
-      iframe.style.minHeight = "120px";
-      iframe.style.height = "160px"; // initial stable height
+      iframe.style.background = "#fff";
       iframe.srcdoc = srcdoc;
-
-      iframe.addEventListener("load", () => {
-        // If still pending (no height posts yet), keep a reasonable height
-        if (
-          iframe.getAttribute("data-skg-iframe") === "pending" &&
-          (!iframe.style.height || iframe.style.height === "0px")
-        ) {
-          iframe.style.height = "160px";
-        }
-      });
 
       slotEl.replaceWith(iframe);
     });
@@ -222,40 +239,41 @@ export default function GameCard({ title, slug, content, excerpt }: Props) {
   }, [processed]);
 
   return (
-    <article
-      className="
-        rounded-3xl shadow-2xl border border-white/10
-        bg-black text-white
-        p-4 sm:p-5 md:p-6
-        max-w-xl mx-auto
-        flex flex-col gap-3
-      "
-      aria-label={title}
-      role="group"
-    >
-      <div
-        ref={containerRef}
-        className="
-          text-left leading-relaxed text-pretty
-          text-[18px] sm:text-[clamp(18px,3.8vw,22px)]
-          [&_p]:mb-5
-          [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6
-          [&_blockquote]:italic [&_blockquote]:opacity-90 [&_blockquote]:border-l [&_blockquote]:pl-4
-          [&_a]:underline
-          [&_img]:rounded-xl [&_img]:mx-auto [&_img]:my-4 [&_img]:max-h-72 [&_img]:object-contain
-        "
-        suppressHydrationWarning
-        dangerouslySetInnerHTML={{
-          __html: processed?.safeHtmlWithSlots ?? toPlainParagraphs(rawHtml, title),
-        }}
-      />
+  <article
+    className="
+      rounded-3xl shadow-2xl border border-white/10
+      bg-black text-white
+      p-6 sm:p-8 md:p-10
+      max-w-xl mx-auto
+      flex flex-col gap-4
+    "
+    aria-label={title}
+    role="group"
+  >
 
-      {/* Bottom slug (subtle) */}
-      {slug && (
-        <div className="text-xs opacity-60 text-center font-mono tracking-wide mt-2">
-          {slug}
-        </div>
-      )}
-    </article>
-  );
+    <div
+      ref={containerRef}
+      className="
+        text-left leading-relaxed text-pretty
+        text-[clamp(18px,2.6vw,20px)]
+        [&_p]:mb-5
+        [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6
+        [&_blockquote]:italic [&_blockquote]:opacity-90 [&_blockquote]:border-l [&_blockquote]:pl-4
+        [&_a]:underline
+        [&_img]:rounded-xl [&_img]:mx-auto [&_img]:my-4 [&_img]:max-h-72 [&_img]:object-contain
+      "
+      suppressHydrationWarning
+      dangerouslySetInnerHTML={{
+        __html: processed?.safeHtmlWithSlots ?? toPlainParagraphs(rawHtml, title),
+      }}
+    />
+
+    {slug && (
+      <div className="text-xs opacity-60 text-center font-mono tracking-wide mt-2">
+        {slug}
+      </div>
+    )}
+  </article>
+);
+
 }
