@@ -117,7 +117,7 @@ export default function SessionClient({
       <div ref={cardAnchorRef} />
 
       {/* Current game card */}
-      <div className="w-full max-w-xl pb-32">
+      <div className="w-full max-w-xl">
         {current ? (
           <GameCard
             title={current.title}
@@ -141,7 +141,7 @@ export default function SessionClient({
       </FooterPortal>
 
       {/* Controls */}
-      <div className="mt-4 flex gap-3">
+      <div className="mt-4 flex gap-3 pb-32">
         <button
           onClick={prev}
           disabled={index === 0}
