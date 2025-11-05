@@ -11,7 +11,6 @@ import ClientScoreBoard from "./ClientScoreBoard";
 const WP_BASE =
   process.env.NEXT_PUBLIC_WP_BASE_URL || "https://somekindofgame.com";
 
-// Types kept inline to avoid any conflicts with shared types elsewhere.
 type GameItem = {
   id: string;
   databaseId: number;
@@ -19,7 +18,7 @@ type GameItem = {
   slug: string;
   content?: string;
   excerpt?: string;
-  uri?: string; // e.g. /family-game-night/sweet-nothings/
+  uri?: string;
 };
 
 type Props = {
@@ -85,7 +84,7 @@ export default function SessionClient({
   // Build blog URL for the current game
   const blogUrl = current?.uri ? `${WP_BASE}${current.uri}` : `${WP_BASE}/`;
 
-  // --- Scroll-to-top + subtle cue on card change --------------------------
+  // --- Scroll-to-top + safe visual cue on card change ----------------------
   const cardTopRef = useRef<HTMLDivElement | null>(null);
   const [flash, setFlash] = useState(false);
 
@@ -97,6 +96,7 @@ export default function SessionClient({
         block: "start",
       });
     }
+    // brief highlight ring (no opacity changes)
     setFlash(true);
     const t = setTimeout(() => setFlash(false), 350);
     return () => clearTimeout(t);
@@ -107,12 +107,12 @@ export default function SessionClient({
       {/* Current game card */}
       <div
         ref={cardTopRef}
-        className={`w-full max-w-xl scroll-mt-28 md:scroll-mt-32 ${
-          flash ? "animate-pulse" : ""
-        }`}
+        className={`w-full max-w-xl scroll-mt-28 md:scroll-mt-32 transition
+          ${flash ? "ring-2 ring-sky-500/60 rounded-3xl" : ""}`}
       >
         {current ? (
           <GameCard
+            key={current.databaseId || current.id}  // ensure clean remount per card
             title={current.title}
             slug={current.slug}
             content={current.content}
